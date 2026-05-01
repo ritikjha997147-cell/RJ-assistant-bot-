@@ -41,7 +41,7 @@ async def get_ai_reply(user_msg, user_name):
             return "Bhai samajh nahi aaya, dubara bol 😅"
     except Exception as e:
         logging.error(f"Gemini Error: {e}")
-        return "Bhai abhi dimaag hang ho gaya 😵 Thodi der baad try kar"
+        return "Bhai abhi RJ nai daat diya hai meri galty ke wze se😵 Thodi der baad try kar me Rutha hu "
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("RJ ka bot on hai bhai 😎\nBol kya kaam hai? /help likh")
 
