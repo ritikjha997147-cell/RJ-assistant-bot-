@@ -65,7 +65,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 def main():
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_TOKEN).updater(None)build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("learn", learn))
