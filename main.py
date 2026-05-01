@@ -35,11 +35,13 @@ async def get_ai_reply(user_msg, user_name):
             system_instruction=f"Tu RJ ka dost hai. User ka naam {user_name} hai. Har reply me naya style use kar. Same sawal 10 baar bhi pooche to alag jawab de. Emojis, slang, Hinglish use kar. 1-2 line me bol."
         )
         response = model.generate_content(user_msg)
-        return response.text
+        if response.text:
+            return response.text
+        else:
+            return "Bhai samajh nahi aaya, dubara bol 😅"
     except Exception as e:
         logging.error(f"Gemini Error: {e}")
         return "Bhai abhi dimaag hang ho gaya 😵 Thodi der baad try kar"
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("RJ ka bot on hai bhai 😎\nBol kya kaam hai? /help likh")
 
