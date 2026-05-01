@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-OWNER_ID = int(os.getenv("OWNER_ID"))  # Railway se utha lega
+OWNER_ID = int(os.getenv("OWNER_ID"))
 
 genai.configure(api_key=GEMINI_API_KEY)
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +29,8 @@ async def get_ai_reply(user_msg, user_name):
         generation_config={"temperature": 1.2, "max_output_tokens": 150},
         system_instruction=f"Tu RJ ka dost hai. User ka naam {user_name} hai. Har reply me naya style use kar. Same sawal 10 baar bhi pooche to alag jawab de. Emojis, slang, Hinglish use kar. 1-2 line me bol."
     )
-    return model.generate_content(user_msg).text
+    response = model.generate_content(user_msg)
+    return response.text
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("RJ ka bot on hai bhai 😎\nBol kya kaam hai? /help likh")
@@ -65,14 +66,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 def main():
-    app = Application.builder().token(TELEGRAM_TOKEN).updater(None)build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_cmd))
-    app.add_handler(CommandHandler("learn", learn))
-    app.add_handler(CommandHandler("note", add_note))
-    app.add_handler(CommandHandler("notes", show_notes))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_cmd))
+    application.add_handler(CommandHandler("learn", learn))
+    application.add_handler(CommandHandler("note", add_note))
+    application.add_handler(CommandHandler("notes", show_notes))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("Bot chalu ho gaya...")
-    app.run_polling()
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__': main()
