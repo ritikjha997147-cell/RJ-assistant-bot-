@@ -30,7 +30,7 @@ async def get_ai_reply(user_msg, user_name):
         if user_msg.lower() in brain["learned"]: return brain["learned"][user_msg.lower()]
         
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-2.0-flash-exp",
             generation_config={"temperature": 1.2, "max_output_tokens": 150},
             system_instruction=f"Tu RJ ka dost hai. User ka naam {user_name} hai. Har reply me naya style use kar. Same sawal 10 baar bhi pooche to alag jawab de. Emojis, slang, Hinglish use kar. 1-2 line me bol."
         )
