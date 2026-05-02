@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import random
 import google.generativeai as genai
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -29,19 +30,26 @@ async def get_ai_reply(user_msg, user_name):
         brain = load_brain()
         if user_msg.lower() in brain["learned"]: return brain["learned"][user_msg.lower()]
         
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash-exp",
-            generation_config={"temperature": 1.2, "max_output_tokens": 150},
-            system_instruction=f"Tu RJ ka dost hai. User ka naam {user_name} hai. Har reply me naya style use kar. Same sawal 10 baar bhi pooche to alag jawab de. Emojis, slang, Hinglish use kar. 1-2 line me bol."
-        )
-        response = model.generate_content(user_msg)
+        # Model name badla hai - ye wala sabke liye chalta hai
+        model = genai.GenerativeModel("gemini-flash-latest")  
+        response = model.generate_content(f"Tu RJ ka dost hai. User {user_name} se Hinglish me 1-2 line me dosti bhare andaaz me baat kar. Emojis use kar. Sawal: {user_msg}")
+        
         if response.text:
             return response.text
         else:
-            return "Bhai samajh nahi aaya, dubara bol 😅"
+            return f"Haan {user_name} bhai, kya haal 😅"
+            
     except Exception as e:
         logging.error(f"Gemini Error: {e}")
-        return "Bhai abhi RJ nai daat diya hai meri galty ke wze se😵 Thodi der baad try kar me Rutha hu "
+        # Backup reply - agar AI fail ho jaye
+        backup = [
+            f"Bhai {user_name} net slow hai, seedha bol 😎",
+            "Kya scene hai bhai 🔥",
+            f"Sunn raha hu {user_name} bhai, bol",
+            "Phone hang ho gaya tha, ab bol 😂"
+        ]
+        return random.choice(backup)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("RJ ka bot on hai bhai 😎\nBol kya kaam hai? /help likh")
 
@@ -76,8 +84,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat = update.effective_chat
         msg = update.message.text
         
-        # Tere ko DM kar dega ki kaun kya bol raha hai
-        if user.id != OWNER_ID:  # Apne message ka notification nahi chahiye
+        if user.id != OWNER_ID:
             chat_type = "DM" if chat.type == "private" else f"Group: {chat.title}"
             log_msg = f"📩 New Msg\nFrom: {user.first_name} (@{user.username})\nID: {user.id}\nChat: {chat_type}\nMessage: {msg}"
             try:
