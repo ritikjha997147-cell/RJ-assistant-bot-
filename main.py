@@ -26,6 +26,13 @@ else:
 USER_DATA = {} # {user_id: {"name": "RJ", "count": 5, "last_msg": "hi", "memory": []}}
 MAX_MEMORY = 5
 
+# SPAM PROTECTION - 5 sec cooldown
+USER_COOLDOWN = {} # ← YE ADD KIYA
+
+# QUOTA TRACKING - Kitne Gemini call bache
+GEMINI_CALLS_TODAY = 0 # ← YE ADD KIYA
+LAST_RESET_DATE = datetime.now().date() # ← YE ADD KIYA
+
 # BRAIN - Yahan saara gyaan hai. Tu aur add kar sakta hai
 KNOWLEDGE = {
     "greetings": {
@@ -75,6 +82,13 @@ DEFAULT_REPLIES = [
 ]
 
 async def get_smart_reply(user_msg, user_id, user_name):
+    global GEMINI_CALLS_TODAY, LAST_RESET_DATE # ← YE ADD KIYA
+    
+    # QUOTA RESET CHECK - Roz 12:30 PM IST pe reset
+    if datetime.now().date() != LAST_RESET_DATE:
+        GEMINI_CALLS_TODAY = 0
+        LAST_RESET_DATE = datetime.now().date()
+    
     user_msg_lower = user_msg.lower()
     
     # 1. MEMORY UPDATE
@@ -114,10 +128,15 @@ async def get_smart_reply(user_msg, user_id, user_name):
     if not gemini_available:
         reply = random.choice(DEFAULT_REPLIES).format(name=user_name)
         return reply
+    
+    # QUOTA CHECK - 1450 pe warning de dena, 1500 se pehle ruk ja
+    if GEMINI_CALLS_TODAY >= 1490:
+        reply = f"Yaar {user_name} quota khatam hone wala hai 🥵 Dopahar 12:30 baje reset hoga. Abhi offline reply dunga."
+        return reply
         
     try:
         await asyncio.sleep(1) # Rate limit se bachne ke liye 1 sec ruk
-        model = genai.GenerativeModel("gemini-1.5-flash")  # ← YAHAN FIX KIYA
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
         pichli_baat = " | ".join(USER_DATA[user_id]["memory"][-3:])
         prompt = f"""
@@ -128,6 +147,7 @@ async def get_smart_reply(user_msg, user_id, user_name):
         """
         
         response = await model.generate_content_async(prompt, request_options={"timeout": 15})
+        GEMINI_CALLS_TODAY += 1 # ← QUOTA COUNT BADHAYA
         
         if response.text:
             reply = response.text
@@ -159,8 +179,15 @@ async def get_smart_reply(user_msg, user_id, user_name):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    msg = update.message.text
+    now = datetime.now().timestamp()
     
+    # 5 SEC COOLDOWN - Spam rokne ke liye ← YE ADD KIYA
+    if user.id in USER_COOLDOWN and now - USER_COOLDOWN[user.id] < 5:
+        return # Reply mat kar, ignore kar
+    
+    USER_COOLDOWN[user.id] = now
+    
+    msg = update.message.text
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     reply = await get_smart_reply(msg, user.id, user.first_name)
     await update.message.reply_text(reply)
@@ -175,11 +202,40 @@ async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_msgs = sum([u["count"] for u in USER_DATA.values()])
     await update.message.reply_text(f"Stats:\nUsers: {total_users}\nTotal Msgs: {total_msgs}")
 
+# /QUOTA COMMAND - NAYA ADD KIYA ← YE PURA NAYA HAI
+async def quota_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text("Bhai ye command sirf malik ke liye hai 🔒")
+        return
+    
+    global GEMINI_CALLS_TODAY
+    remaining = 1500 - GEMINI_CALLS_TODAY
+    percent = (GEMINI_CALLS_TODAY / 1500) * 100
+    
+    if remaining <= 0:
+        status = "❌ KHATAM HO GAYA"
+        reset_time = "Dopahar 12:30 PM IST"
+    elif remaining < 100:
+        status = "⚠️ KHATAM HONE WALA HAI"
+        reset_time = "Dopahar 12:30 PM IST"
+    else:
+        status = "✅ MAST CHAL RAHA"
+        reset_time = "Dopahar 12:30 PM IST"
+    
+    await update.message.reply_text(
+        f"📊 **GEMINI QUOTA**\n\n"
+        f"Used: {GEMINI_CALLS_TODAY}/1500 ({percent:.1f}%)\n"
+        f"Bache: {remaining}\n"
+        f"Status: {status}\n"
+        f"Reset: {reset_time}"
+    )
+
 def main():
     global app
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats_cmd))
+    app.add_handler(CommandHandler("quota", quota_cmd)) # ← YE LINE ADD KI
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling(drop_pending_updates=True)
 
