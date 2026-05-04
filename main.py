@@ -16,7 +16,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Gemini Setup
-genai.configure(api_key=GEMINI_API_KEY)
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_available = True
+else:
+    gemini_available = False
 
 # MEMORY SYSTEM - User ko yaad rakhega
 USER_DATA = {} # {user_id: {"name": "RJ", "count": 5, "last_msg": "hi", "memory": []}}
@@ -107,9 +111,13 @@ async def get_smart_reply(user_msg, user_id, user_name):
             pass
     
     # 4. AGAR OFFLINE ME KUCH NAA MILE TO GEMINI KO POOCH
+    if not gemini_available:
+        reply = random.choice(DEFAULT_REPLIES).format(name=user_name)
+        return reply
+        
     try:
         await asyncio.sleep(1) # Rate limit se bachne ke liye 1 sec ruk
-        model = genai.GenerativeModel("gemini-1.5-flash-exp")
+        model = genai.GenerativeModel("gemini-1.5-flash")  # ← YAHAN FIX KIYA
         
         pichli_baat = " | ".join(USER_DATA[user_id]["memory"][-3:])
         prompt = f"""
