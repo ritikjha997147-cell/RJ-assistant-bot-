@@ -1,153 +1,179 @@
 import os
-import json
-import logging
+import re
 import random
+import logging
 import asyncio
-import time
-import google.generativeai as genai
+from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
+import google.generativeai as genai
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-OWNER_ID = int(os.getenv("OWNER_ID"))
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+OWNER_ID = int(os.getenv('OWNER_ID'))
 
-genai.configure(api_key=GEMINI_API_KEY)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# FIX 1: Brain load safe ho gaya - corrupt hua to bhi chalega
-def load_brain():
-    try:
-        if os.path.exists("brain.json"):
-            with open("brain.json", 'r', encoding='utf-8') as f: 
-                return json.load(f)
-    except Exception as e:
-        logger.error(f"Brain load error: {e}. Naya bana raha hu")
-    return {"notes": [], "learned": {}}
+# Gemini Setup
+genai.configure(api_key=GEMINI_API_KEY)
 
-def save_brain(brain):
-    try:
-        # Temp file me likh ke rename - crash hua to file corrupt nahi hogi
-        with open("brain_temp.json", 'w', encoding='utf-8') as f: 
-            json.dump(brain, f, ensure_ascii=False, indent=2)
-        os.replace("brain_temp.json", "brain.json")
-    except Exception as e: 
-        logger.error(f"Save error: {e}")
+# MEMORY SYSTEM - User ko yaad rakhega
+USER_DATA = {} # {user_id: {"name": "RJ", "count": 5, "last_msg": "hi", "memory": []}}
+MAX_MEMORY = 5
 
-# FIX 2: Gemini ab 5 baar try karega + timeout 30s
-async def get_ai_reply(user_msg, user_name):
-    brain = load_brain()
-    if user_msg.lower() in brain["learned"]: 
-        return brain["learned"][user_msg.lower()]
+# BRAIN - Yahan saara gyaan hai. Tu aur add kar sakta hai
+KNOWLEDGE = {
+    "greetings": {
+        "patterns": ["hi", "hello", "hey", "namaste", "kya haal"],
+        "replies": ["Haan {name} bhai 🔥", "Bol {name} kya haal", "Namaste {name} ji 😎"]
+    },
+    "how_are_you": {
+        "patterns": ["kaise ho", "kya haal", "how are you", "kya chal raha"],
+        "replies": ["Badhiya {name} tu suna", "Bindas bhai 😎 Tu bata", "Sab mast {name}"]
+    },
+    "name": {
+        "patterns": ["naam kya", "who are you", "tu kaun", "tera naam"],
+        "replies": ["Main {bot_name} hun, {name} ka assistant 🤖", "Mujhe {bot_name} bolte hain bhai"]
+    },
+    "time": {
+        "patterns": ["time", "kitne baje", "samay", "waqt"],
+        "replies": ["Abhi {time} baj rahe hain {name}", "{time} hua hai bhai"]
+    },
+    "jokes": {
+        "patterns": ["joke", "hasao", "funny", "majak"],
+        "replies": ["Teacher: Padhai kyu nahi ki?\nBaccha: Network issue tha 😂", "Aloo bola: Main mashoor hun\nTamatar bola: Main bhi laal hun 😂"]
+    },
+    "thanks": {
+        "patterns": ["thanks", "thank you", "shukriya", "dhanyawad"],
+        "replies": ["Koi na {name} bhai ❤️", "Welcome yaara 😎", "Are mention not"]
+    },
+    "bye": {
+        "patterns": ["bye", "alvida", "ja raha", "goodbye", "milte"],
+        "replies": ["Bye {name} bhai, milte hain 👋", "Chalta hun {name} 🔥", "Okay tata"]
+    },
+    "pw": {
+        "patterns": ["pw", "physics wallah", "live class", "batch"],
+        "replies": ["PW ka link bhej de {name}, main check kar lunga live hai ya nahi", "Batch ka naam bata bhai"]
+    },
+    "owner": {
+        "patterns": ["owner", "malik", "kisne banaya", "creator"],
+        "replies": ["Mere malik THE RJ hain 🔥", "RJ bhai ne banaya mujhe"]
+    }
+}
+
+# DEFAULT REPLY - Jab kuch samajh na aaye
+DEFAULT_REPLIES = [
+    "Samjha nahi {name} bhai 😅 Thoda seedha bol",
+    "Ye to high level ho gaya {name} 🤔 Easy wala pooch",
+    "Mera CPU heat ho gaya {name} 🥵 Phir se bol",
+    "Abhi training chal rahi hai {name} 😂 Baad me batana ye"
+]
+
+async def get_smart_reply(user_msg, user_id, user_name):
+    user_msg_lower = user_msg.lower()
     
-    for attempt in range(5):
+    # 1. MEMORY UPDATE
+    if user_id not in USER_DATA:
+        USER_DATA[user_id] = {"name": user_name, "count": 0, "last_msg": "", "memory": []}
+    USER_DATA[user_id]["count"] += 1
+    USER_DATA[user_id]["last_msg"] = user_msg
+    
+    # 2. SABSE PEHLE OFFLINE BRAIN CHECK KAR - Fast reply ke liye
+    for category, data in KNOWLEDGE.items():
+        for pattern in data["patterns"]:
+            if re.search(r'\b' + pattern + r'\b', user_msg_lower):
+                reply = random.choice(data["replies"])
+                reply = reply.format(
+                    name=user_name,
+                    bot_name="RJ Bot",
+                    time=datetime.now().strftime("%I:%M %p"),
+                    count=USER_DATA[user_id]["count"]
+                )
+                # Memory me daal de
+                USER_DATA[user_id]["memory"].append(f"U: {user_msg} | B: {reply}")
+                if len(USER_DATA[user_id]["memory"]) > MAX_MEMORY:
+                    USER_DATA[user_id]["memory"].pop(0)
+                return reply
+    
+    # 3. SPECIAL CASES - Math solve kar de
+    if re.search(r'\d+[\+\-\*\/]\d+', user_msg):
         try:
-            model = genai.GenerativeModel("gemini-flash-latest")  
-            response = await model.generate_content_async(
-                f"Tu RJ ka dost hai. User {user_name} se Hinglish me 1-2 line me dosti bhare andaaz me baat kar. Emojis use kar. Sawal: {user_msg}",
-                request_options={"timeout": 30}
-            )
-            if response.text:
-                return response.text
-            else:
-                return f"Haan {user_name} bhai, kya haal 😅"
-                
-        except ResourceExhausted:
-            logger.warning("Quota khatam")
-            return f"Bhai {user_name} abhi thoda rush hai 😅 1 min baad try karna"
-        
-        except (ServiceUnavailable, DeadlineExceeded):
-            if attempt < 4:
-                wait = 2 ** attempt  # 2,4,8,16 sec wait
-                logger.warning(f"Gemini down. {wait}s baad retry {attempt+1}/5")
-                await asyncio.sleep(wait)
-                continue
-            return f"Google ka server so gaya {user_name} 😴 30 sec baad poochna"
-            
-        except Exception as e:
-            logger.error(f"Gemini Error: {e}")
-            break
+            result = eval(re.sub(r'[^0-9\+\-\*\/\(\)\.]', '', user_msg))
+            reply = f"Hisab lagaya {user_name}: {result} 😎"
+            USER_DATA[user_id]["memory"].append(f"U: {user_msg} | B: {reply}")
+            return reply
+        except:
+            pass
     
-    # FIX 3: Backup reply - AI fail ho bhi jaye to bot zinda rahega
-    backup = [
-        f"Bhai {user_name} thoda traffic hai, seedha bol 😎",
-        f"Kya scene hai {user_name} bhai 🔥",
-        f"Sunn raha hu {user_name}, bol kya baat hai",
-        "Dimag restart kar raha hun 😂 Tu bol kya kaam hai"
-    ]
-    return random.choice(backup)
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("RJ ka bot on hai bhai 😎\nBol kya kaam hai? /help likh")
-
-async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Commands:\n/learn hello ka reply namaste\n/note doodh lana hai\n/notes")
-
-async def learn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID: 
-        await update.message.reply_text("Sirf boss sikha sakta hai 😎"); return
+    # 4. AGAR OFFLINE ME KUCH NAA MILE TO GEMINI KO POOCH
     try:
-        text = ' '.join(context.args)
-        trigger, response = text.split(' ka reply ', 1)
-        brain = load_brain(); brain["learned"][trigger.lower()] = response; save_brain(brain)
-        await update.message.reply_text(f"Seekh gaya ✅")
-    except: await update.message.reply_text("Aise: /learn hi ka reply hello")
-
-async def add_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    note = ' '.join(context.args)
-    if not note: return
-    brain = load_brain(); brain["notes"].append(note); save_brain(brain)
-    await update.message.reply_text(f"Note kar liya ✅: {note}")
-
-async def show_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    brain = load_brain()
-    if not brain["notes"]: await update.message.reply_text("Koi note nahi"); return
-    notes_text = "\n".join([f"{i+1}. {note}" for i, note in enumerate(brain["notes"])])
-    await update.message.reply_text(f"Tere Notes:\n{notes_text}")
+        await asyncio.sleep(1) # Rate limit se bachne ke liye 1 sec ruk
+        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        
+        pichli_baat = " | ".join(USER_DATA[user_id]["memory"][-3:])
+        prompt = f"""
+        Tu RJ ka dost hai. Hinglish me baat kar. 1-2 line reply de. 
+        User: {user_name}
+        Pichli baat: {pichli_baat}
+        Abhi poocha: {user_msg}
+        """
+        
+        response = await model.generate_content_async(prompt, request_options={"timeout": 15})
+        
+        if response.text:
+            reply = response.text
+        else:
+            raise Exception("Empty response")
+            
+    except Exception as e:
+        # 5. GEMINI FAIL HO GAYA TO DEFAULT + OWNER KO ERROR
+        logger.error(f"Gemini Failed: {e}")
+        
+        # Owner ko error bhej de
+        try:
+            await app.bot.send_message(
+                chat_id=OWNER_ID,
+                text=f"🚨 GEMINI ERROR 🚨\nUser: {user_name}\nMsg: {user_msg}\nError: {str(e)[:500]}"
+            )
+        except:
+            pass
+            
+        # User ko default reply
+        reply = random.choice(DEFAULT_REPLIES).format(name=user_name)
+    
+    # 6. MEMORY UPDATE
+    USER_DATA[user_id]["memory"].append(f"U: {user_msg} | B: {reply}")
+    if len(USER_DATA[user_id]["memory"]) > MAX_MEMORY:
+        USER_DATA[user_id]["memory"].pop(0)
+    
+    return reply
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        user = update.effective_user
-        chat = update.effective_chat
-        msg = update.message.text
-        
-        # Owner ko forward - isme error aaye to bhi bot chalta rahe
-        if user.id != OWNER_ID:
-            try:
-                chat_type = "DM" if chat.type == "private" else f"Group: {chat.title}"
-                log_msg = f"📩 New Msg\nFrom: {user.first_name} (@{user.username})\nID: {user.id}\nChat: {chat_type}\nMessage: {msg}"
-                await context.bot.send_message(chat_id=OWNER_ID, text=log_msg)
-            except Exception as e:
-                logger.error(f"Forward failed: {e}")
-        
-        await context.bot.send_chat_action(chat_id=chat.id, action="typing")
-        reply = await get_ai_reply(msg, user.first_name)
-        await update.message.reply_text(reply)
-        
-    except Exception as e:
-        logger.error(f"Handle Error: {e}")
-        await update.message.reply_text("Chhota sa jhatka laga tha 😂 Ab theek hu. Phir se bol")
+    user = update.effective_user
+    msg = update.message.text
+    
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    reply = await get_smart_reply(msg, user.id, user.first_name)
+    await update.message.reply_text(reply)
 
-# FIX 4: Global Error Handler - Kuch bhi ho jaye bot crash nahi hoga
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    logger.error(f"Exception while handling update: {context.error}")
-    if update and hasattr(update, 'effective_message') and update.effective_message:
-        await update.effective_message.reply_text("Arey bhai technical dikkat 😅 Ab theek hu")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"Ram Ram {update.effective_user.first_name} 🔥\nMain hybrid bot hun. Offline + Gemini dono. Kuch bhi pooch le")
+
+async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        return
+    total_users = len(USER_DATA)
+    total_msgs = sum([u["count"] for u in USER_DATA.values()])
+    await update.message.reply_text(f"Stats:\nUsers: {total_users}\nTotal Msgs: {total_msgs}")
 
 def main():
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-    application.add_error_handler(error_handler)  # Ye line add kari hai
-    
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_cmd))
-    application.add_handler(CommandHandler("learn", learn))
-    application.add_handler(CommandHandler("note", add_note))
-    application.add_handler(CommandHandler("notes", show_notes))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    print("Bot chalu ho gaya... Amarr wala version 💪")
-    application.run_polling(drop_pending_updates=True)
+    global app
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("stats", stats_cmd))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.run_polling(drop_pending_updates=True)
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    main()
