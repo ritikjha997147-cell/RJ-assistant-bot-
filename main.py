@@ -71,7 +71,7 @@ async def get_smart_reply(user_msg, user_id, user_name):
             try:
                 await asyncio.sleep(0.5) # Rate limit se bachne ke liye
                 model = genai.GenerativeModel(model_name)
-                response = await model.generate_content_async(prompt, request_options={"timeout": 20})
+                response = await asyncio.to_thread(model.generate_content, prompt)
 
                 if response.text:
                     GEMINI_CALLS[current_key_index] += 1
