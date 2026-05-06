@@ -1,6 +1,57 @@
+import os
+import re
+import random
+import asyncio
+import logging
+import google.generativeai as genai
+from datetime import datetime
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+# ===== 1. SETUP =====
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OWNER_ID = int(os.getenv("OWNER_ID", 0))
+
+API_KEYS = [
+    os.getenv("GEMINI_API_KEY_1"),
+    os.getenv("GEMINI_API_KEY_2"),
+    os.getenv("GEMINI_API_KEY_3"),
+    os.getenv("GEMINI_API_KEY_4"),
+]
+API_KEYS = [key for key in API_KEYS if key] # Empty hatao
+
+MODEL_LIST = [
+    'gemini-1.5-flash',
+    'gemini-1.5-pro', 
+    'gemini-pro',
+    'gemini-1.0-pro'
+]
+
+# ===== 2. GLOBAL VARIABLES =====
+USER_DATA = {}
+MAX_MEMORY = 10
+KNOWLEDGE = {
+    "greeting": {
+        "patterns": ["hi", "hello", "hey", "namaste"],
+        "replies": ["Haan bhai {name} 😎", "Kya haal {name}?", "Bol {name} kya scene hai"]
+    }
+}
+DEFAULT_REPLIES = ["Bhai {name} samjha nahi 😅", "Phir se bol {name}"]
+GEMINI_CALLS = {i: 0 for i in range(len(API_KEYS))}
+LAST_RESET_DATE = datetime.now().date()
+gemini_available = len(API_KEYS) > 0
+current_key_index = 0
+
+if gemini_available:
+    genai.configure(api_key=API_KEYS[0])
+
+# ===== 3. TERA FUNCTION - YAHI HAI TERA CODE =====
 async def get_smart_reply(user_msg, user_id, user_name):
     global GEMINI_CALLS, LAST_RESET_DATE, gemini_available, current_key_index
-
+    
     # QUOTA RESET CHECK - Roz 12:30 PM IST pe reset
     if datetime.now().date()!= LAST_RESET_DATE:
         GEMINI_CALLS = {i: 0 for i in range(len(API_KEYS))}
@@ -132,3 +183,31 @@ async def get_smart_reply(user_msg, user_id, user_name):
         USER_DATA[user_id]["memory"].pop(0)
 
     return reply
+
+# ===== 4. TELEGRAM HANDLERS - YE MISSING THA =====
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("RJ Bot chalu hai bhai 😎 Kuch bhi pooch le")
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reply = await get_smart_reply(
+        update.message.text, 
+        update.effective_user.id, 
+        update.effective_user.first_name
+    )
+    await update.message.reply_text(reply)
+
+# ===== 5. BOT START - YE SABSE IMPORTANT HAI =====
+if __name__ == "__main__":
+    print("Bot starting...")
+    
+    if not BOT_TOKEN:
+        print("ERROR: BOT_TOKEN nahi mila Railway Variables me")
+        exit()
+    
+    app = Application.builder().token(BOT_TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    print("Application started") # Ye logs me aana chahiye
+    app.run_polling() # Ye line bot ko Telegram se jodti hai
