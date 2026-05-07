@@ -68,11 +68,42 @@ except:
 
 KNOWLEDGE = {
     "greeting": {
-        "patterns": ["hi", "hello", "hey", "namaste"],
-        "replies": ["Haan bhai {name} 😎", "Kya haal {name}?", "Bol {name} kya scene hai"]
+        "patterns": [
+            "hi", "hello", "hey", "hii", "hiii", "hiiii",
+            "hlw", "hlo", "hy", "hay", "heyy", "helo",
+            "namaste", "namaskar", "ram ram", "jai shree",
+            "salaam", "assalam", "adaab", "sup", "yo",
+            "hola", "kaise ho", "kya haal", "kem cho"
+        ],
+        "replies": [
+            "Haan bhai {name} 😎 Kya haal hai?",
+            "Oye {name}! 🔥 Bol kya scene hai",
+            "Namaste {name} 🙏 Kaise ho bhai?",
+            "Hey {name}! Kya kar raha hai 😄",
+            "Haan bol {name} 😎 Sab badhiya?",
+            "Arre {name} aa gaya tu 😂 Kya chal raha",
+            "Yo {name}! What's up bro 🤙"
+        ]
+    },
+    "bye": {
+        "patterns": ["bye", "by", "tata", "goodbye", "gn", "good night", "bye bye"],
+        "replies": [
+            "Chalta hu {name} 👋 Phir milte hain",
+            "Bye {name}! Take care 😊",
+            "Theek hai {name}, baad me baat karte 💤",
+            "GN {name} 🌙 Sweet dreams"
+        ]
+    },
+    "thanks": {
+        "patterns": ["thanks", "thank you", "thx", "ty", "shukriya", "dhanyawad"],
+        "replies": [
+            "Koi na {name} 😎 Dosti me kaisa thanks",
+            "Welcome hai {name} 🔥 Aur bata kya help chahiye",
+            "Are bhai {name} mention not 😄",
+            "Bas khush reh {name} ❤️"
+        ]
     }
 }
-
 SMART_FALLBACK = [
     "Bhai {name} net thoda slow hai 😅 Par tu suna kya haal hai?",
     "Arre {name} server busy hai. Tu chai pi le tab tak, main aa raha 2 min me ☕",
