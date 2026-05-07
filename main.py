@@ -4,7 +4,7 @@ import random
 import asyncio
 import logging
 import json
-import time # ← Naya import
+import time
 import google.generativeai as genai
 from datetime import datetime
 from telegram import Update
@@ -36,9 +36,10 @@ MODEL_LIST = [
 USER_DATA = {}
 MAX_MEMORY = 10
 CUSTOM_COMMANDS_FILE = "custom_commands.json"
+LEARNED_REPLIES_FILE = "learned_replies.json" # ← NAYA: Learning ke liye
 CONTACT_INFO = "Owner: @YourUsername"
-USER_COOLDOWN = {} # ← NAYA: Anti-spam ke liye
-COOLDOWN_TIME = 5 # ← NAYA: 5 second wait
+USER_COOLDOWN = {}
+COOLDOWN_TIME = 5
 
 # Load custom commands from file
 try:
@@ -47,6 +48,13 @@ try:
 except:
     CUSTOM_COMMANDS = {}
 
+# ← NAYA: Learned replies load karo
+try:
+    with open(LEARNED_REPLIES_FILE, 'r') as f:
+        LEARNED_REPLIES = json.load(f)
+except:
+    LEARNED_REPLIES = {}
+
 KNOWLEDGE = {
     "greeting": {
         "patterns": ["hi", "hello", "hey", "namaste"],
@@ -54,7 +62,6 @@ KNOWLEDGE = {
     }
 }
 
-# ← NAYA: Gemini fail ho to ye use hoga - Insan jaisa lagega
 SMART_FALLBACK = [
     "Bhai {name} net thoda slow hai 😅 Par tu suna kya haal hai?",
     "Arre {name} server busy hai. Tu chai pi le tab tak, main aa raha 2 min me ☕",
@@ -71,17 +78,21 @@ current_key_index = 0
 
 if gemini_available:
     genai.configure(api_key=API_KEYS[0])
-    os.environ["GRPC_DNS_RESOLVER"] = "native" # ← NAYA: India block fix
+    os.environ["GRPC_DNS_RESOLVER"] = "native"
 
 # ===== 3. HELPER FUNCTIONS =====
 def save_custom_commands():
     with open(CUSTOM_COMMANDS_FILE, 'w') as f:
         json.dump(CUSTOM_COMMANDS, f, indent=2)
 
+# ← NAYA: Learned replies save karne ka function
+def save_learned_replies():
+    with open(LEARNED_REPLIES_FILE, 'w') as f:
+        json.dump(LEARNED_REPLIES, f, indent=2)
+
 def is_owner(user_id):
     return user_id == OWNER_ID
 
-# ← NAYA: Anti-spam check
 def check_cooldown(user_id):
     current_time = time.time()
     if user_id in USER_COOLDOWN:
@@ -107,6 +118,11 @@ async def get_smart_reply(user_msg, user_id, user_name):
     # 0. CUSTOM COMMAND CHECK
     if user_msg_lower in CUSTOM_COMMANDS:
         return CUSTOM_COMMANDS[user_msg_lower].format(name=user_name)
+
+    # ← NAYA: LEARNED REPLIES CHECK - Sabse pehle
+    if user_msg_lower in LEARNED_REPLIES:
+        reply = random.choice(LEARNED_REPLIES[user_msg_lower]).format(name=user_name)
+        return reply
 
     # 1. MEMORY UPDATE
     if user_id not in USER_DATA:
@@ -137,7 +153,7 @@ async def get_smart_reply(user_msg, user_id, user_name):
 
     # 4. GEMINI FALLBACK
     if not gemini_available:
-        reply = random.choice(SMART_FALLBACK).format(name=user_name) # ← BADLA: Smart fallback
+        reply = random.choice(SMART_FALLBACK).format(name=user_name)
         return reply
 
     pichli_baat = " | ".join(USER_DATA[user_id]["memory"][-3:])
@@ -192,7 +208,7 @@ async def get_smart_reply(user_msg, user_id, user_name):
             await app.bot.send_message(chat_id=OWNER_ID, text=f"🔄 KEY SWITCH\nKey {old_index+1} → Key {current_key_index+1}")
         except: pass
 
-    reply = random.choice(SMART_FALLBACK).format(name=user_name) # ← BADLA: Smart fallback
+    reply = random.choice(SMART_FALLBACK).format(name=user_name)
     USER_DATA[user_id]["memory"].append(f"U: {user_msg} | B: {reply}")
     return reply
 
@@ -242,6 +258,50 @@ async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"/{cmd} → {reply[:30]}...\n"
     await update.message.reply_text(msg)
 
+# ← NAYA: LEARN COMMAND - Bot ko sikhane ke liye
+async def learn_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_owner(update.effective_user.id):
+        await update.message.reply_text("Bhai ye command sirf owner ke liye hai 😅")
+        return
+
+    if len(context.args) < 2:
+        await update.message.reply_text("Use: /learn question | answer\nexample: /learn tumhara naam | Mera naam RJ Bot hai 😎")
+        return
+
+    full_text = " ".join(context.args)
+    if "|" not in full_text:
+        await update.message.reply_text("❌ Format galat hai bhai\nUse: /learn question | answer")
+        return
+
+    question, answer = full_text.split("|", 1)
+    question = question.strip().lower()
+    answer = answer.strip()
+
+    if question not in LEARNED_REPLIES:
+        LEARNED_REPLIES[question] = []
+    
+    LEARNED_REPLIES[question].append(answer)
+    save_learned_replies()
+    await update.message.reply_text(f"✅ Seekh gaya bhai!\nQ: {question}\nA: {answer}")
+
+# ← NAYA: UNLEARN COMMAND - Sikhaya hua bhulane ke liye
+async def unlearn_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_owner(update.effective_user.id):
+        await update.message.reply_text("Bhai ye command sirf owner ke liye hai 😅")
+        return
+
+    if not context.args:
+        await update.message.reply_text("Use: /unlearn question")
+        return
+
+    question = " ".join(context.args).lower()
+    if question in LEARNED_REPLIES:
+        del LEARNED_REPLIES[question]
+        save_learned_replies()
+        await update.message.reply_text(f"✅ Bhool gaya: {question}")
+    else:
+        await update.message.reply_text(f"❌ Ye to maine seekha hi nahi tha: {question}")
+
 async def set_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global CONTACT_INFO
     if not is_owner(update.effective_user.id):
@@ -261,7 +321,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     total_users = len(USER_DATA)
     total_calls = sum(GEMINI_CALLS.values())
-    msg = f"📊 Bot Stats:\n\n👥 Total Users: {total_users}\n🤖 Gemini Calls: {total_calls}\n🔑 Active Key: {current_key_index+1}\n💬 Custom Commands: {len(CUSTOM_COMMANDS)}"
+    msg = f"📊 Bot Stats:\n\n👥 Total Users: {total_users}\n🤖 Gemini Calls: {total_calls}\n🔑 Active Key: {current_key_index+1}\n💬 Custom Commands: {len(CUSTOM_COMMANDS)}\n🧠 Learned Replies: {len(LEARNED_REPLIES)}"
     await update.message.reply_text(msg)
 
 # ===== 6. NORMAL HANDLERS =====
@@ -271,20 +331,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
-    # ← NAYA: Anti-spam check
     if not check_cooldown(user_id):
         await update.message.reply_text(f"Bhai {update.effective_user.first_name} ruk ja 5 sec 😂 Spam mat kar")
         return
     
-    # ← NAYA: Typing indicator
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    await asyncio.sleep(1) # 1 sec typing dikhega
+    await asyncio.sleep(1)
     
     reply = await get_smart_reply(update.message.text, user_id, update.effective_user.first_name)
     await update.message.reply_text(reply)
 
 # ===== 7. BOT START =====
-if __name__ == "__main__": # ← FIX: __name__ tha, name nahi
+if __name__ == "__main__":
     print("Bot starting...")
     if not BOT_TOKEN:
         print("ERROR: BOT_TOKEN nahi mila")
@@ -298,6 +356,9 @@ if __name__ == "__main__": # ← FIX: __name__ tha, name nahi
     app.add_handler(CommandHandler("listcmd", list_cmd))
     app.add_handler(CommandHandler("setcontact", set_contact))
     app.add_handler(CommandHandler("stats", stats))
+    # ← NAYE COMMANDS ADD KIYE
+    app.add_handler(CommandHandler("learn", learn_cmd))
+    app.add_handler(CommandHandler("unlearn", unlearn_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("Application started")
