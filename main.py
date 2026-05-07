@@ -36,19 +36,17 @@ MODEL_LIST = [
 USER_DATA = {}
 MAX_MEMORY = 10
 CUSTOM_COMMANDS_FILE = "custom_commands.json"
-LEARNED_REPLIES_FILE = "learned_replies.json" # ← NAYA: Learning ke liye
+LEARNED_REPLIES_FILE = "learned_replies.json"
 CONTACT_INFO = "Owner: @YourUsername"
 USER_COOLDOWN = {}
 COOLDOWN_TIME = 5
 
-# Load custom commands from file
 try:
     with open(CUSTOM_COMMANDS_FILE, 'r') as f:
         CUSTOM_COMMANDS = json.load(f)
 except:
     CUSTOM_COMMANDS = {}
 
-# ← NAYA: Learned replies load karo
 try:
     with open(LEARNED_REPLIES_FILE, 'r') as f:
         LEARNED_REPLIES = json.load(f)
@@ -85,7 +83,6 @@ def save_custom_commands():
     with open(CUSTOM_COMMANDS_FILE, 'w') as f:
         json.dump(CUSTOM_COMMANDS, f, indent=2)
 
-# ← NAYA: Learned replies save karne ka function
 def save_learned_replies():
     with open(LEARNED_REPLIES_FILE, 'w') as f:
         json.dump(LEARNED_REPLIES, f, indent=2)
@@ -115,22 +112,18 @@ async def get_smart_reply(user_msg, user_id, user_name):
 
     user_msg_lower = user_msg.lower()
 
-    # 0. CUSTOM COMMAND CHECK
     if user_msg_lower in CUSTOM_COMMANDS:
         return CUSTOM_COMMANDS[user_msg_lower].format(name=user_name)
 
-    # ← NAYA: LEARNED REPLIES CHECK - Sabse pehle
     if user_msg_lower in LEARNED_REPLIES:
         reply = random.choice(LEARNED_REPLIES[user_msg_lower]).format(name=user_name)
         return reply
 
-    # 1. MEMORY UPDATE
     if user_id not in USER_DATA:
         USER_DATA[user_id] = {"name": user_name, "count": 0, "last_msg": "", "memory": []}
     USER_DATA[user_id]["count"] += 1
     USER_DATA[user_id]["last_msg"] = user_msg
 
-    # 2. OFFLINE BRAIN
     for category, data in KNOWLEDGE.items():
         for pattern in data["patterns"]:
             if re.search(r'\b' + pattern + r'\b', user_msg_lower):
@@ -141,7 +134,6 @@ async def get_smart_reply(user_msg, user_id, user_name):
                     USER_DATA[user_id]["memory"].pop(0)
                 return reply
 
-    # 3. MATH
     if re.search(r'\d+[\+\-\*\/]\d+', user_msg):
         try:
             result = eval(re.sub(r'[^0-9\+\-\*\/\(\)\.]', '', user_msg))
@@ -151,7 +143,6 @@ async def get_smart_reply(user_msg, user_id, user_name):
         except:
             pass
 
-    # 4. GEMINI FALLBACK
     if not gemini_available:
         reply = random.choice(SMART_FALLBACK).format(name=user_name)
         return reply
@@ -212,6 +203,45 @@ async def get_smart_reply(user_msg, user_id, user_name):
     USER_DATA[user_id]["memory"].append(f"U: {user_msg} | B: {reply}")
     return reply
 
+# ← NAYA: IMAGE VISION KE LIYE GEMINI FUNCTION
+async def get_image_reply(image_bytes, user_prompt, user_name):
+    global GEMINI_CALLS, current_key_index, gemini_available
+
+    if not gemini_available:
+        return f"Bhai {user_name} abhi photo nahi dekh pa raha, keys khatam 😅"
+
+    prompt = f"""
+    Tu RJ ka dost hai - dilli ka chhora. User: {user_name}
+    Ye photo dekh aur bata isme kya hai.
+    User ne pucha: {user_prompt if user_prompt else 'Photo me kya hai?'}
+
+    RULE: Hinglish me 2-3 line me dosti wale style me reply de. Emoji use kar.
+    Agar meme hai to hasa ke roast kar. Agar padhai ka hai to samjha de.
+    """
+
+    for key_attempt in range(len(API_KEYS)):
+        current_key = API_KEYS[current_key_index]
+        genai.configure(api_key=current_key)
+
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash-latest') # Vision model
+            image_part = {"mime_type": "image/jpeg", "data": image_bytes}
+            response = await asyncio.to_thread(model.generate_content, [prompt, image_part])
+
+            if response.text:
+                GEMINI_CALLS[current_key_index] += 1
+                return response.text
+        except Exception as e:
+            error_str = str(e).lower()
+            if "429" in error_str or "quota" in error_str:
+                current_key_index = (current_key_index + 1) % len(API_KEYS)
+                continue
+            else:
+                logger.error(f"Vision Error: {e}")
+                break
+
+    return f"Bhai {user_name} photo samjh nahi aayi 😅 Dubara bhej clear wali"
+
 # ===== 5. OWNER COMMANDS =====
 async def add_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_owner(update.effective_user.id):
@@ -258,7 +288,6 @@ async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"/{cmd} → {reply[:30]}...\n"
     await update.message.reply_text(msg)
 
-# ← NAYA: LEARN COMMAND - Bot ko sikhane ke liye
 async def learn_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_owner(update.effective_user.id):
         await update.message.reply_text("Bhai ye command sirf owner ke liye hai 😅")
@@ -279,12 +308,11 @@ async def learn_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if question not in LEARNED_REPLIES:
         LEARNED_REPLIES[question] = []
-    
+
     LEARNED_REPLIES[question].append(answer)
     save_learned_replies()
     await update.message.reply_text(f"✅ Seekh gaya bhai!\nQ: {question}\nA: {answer}")
 
-# ← NAYA: UNLEARN COMMAND - Sikhaya hua bhulane ke liye
 async def unlearn_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_owner(update.effective_user.id):
         await update.message.reply_text("Bhai ye command sirf owner ke liye hai 😅")
@@ -326,20 +354,67 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===== 6. NORMAL HANDLERS =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"RJ Bot chalu hai bhai 😎 Kuch bhi pooch le\n\nContact: {CONTACT_INFO}")
+    await update.message.reply_text(f"RJ Bot chalu hai bhai 😎 Kuch bhi pooch le\nPhoto bhej ke bhi puch sakta hai 📸\n\nContact: {CONTACT_INFO}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
+
     if not check_cooldown(user_id):
         await update.message.reply_text(f"Bhai {update.effective_user.first_name} ruk ja 5 sec 😂 Spam mat kar")
         return
-    
+
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     await asyncio.sleep(1)
-    
-    reply = await get_smart_reply(update.message.text, user_id, update.effective_user.first_name)
+
+    user_text = update.message.text or update.message.caption or ""
+
+    reply = await get_smart_reply(user_text, user_id, update.effective_user.first_name)
     await update.message.reply_text(reply)
+
+# ← NAYA: PHOTO HANDLE KARNE KA FUNCTION - IMAGE VISION
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    user_name = update.effective_user.first_name
+
+    if not check_cooldown(user_id):
+        await update.message.reply_text(f"Bhai {user_name} ruk ja 5 sec 😂")
+        return
+
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+
+    # Photo download karo
+    photo_file = await update.message.photo[-1].get_file()
+    photo_bytes = await photo_file.download_as_bytearray()
+
+    # Caption hai to wo prompt banega
+    user_prompt = update.message.caption or ""
+
+    reply = await get_image_reply(photo_bytes, user_prompt, user_name)
+    await update.message.reply_text(reply)
+
+async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if not check_cooldown(user_id):
+        await update.message.reply_text(f"Bhai {update.effective_user.first_name} ruk ja 5 sec 😂")
+        return
+
+    await update.message.reply_text("🎤 Voice sun raha hu bhai... Par abhi text me hi reply dunga 😅\n\nTu likh ke bhej de na")
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if not check_cooldown(user_id):
+        return
+
+    file_name = update.message.document.file_name
+    await update.message.reply_text(f"📄 File mil gayi: {file_name}\n\nBhai abhi main PDF padh nahi sakta 😅 Owner ko forward kar diya")
+
+    try:
+        await context.bot.forward_message(chat_id=OWNER_ID, from_chat_id=update.effective_chat.id, message_id=update.message.message_id)
+        await context.bot.send_message(chat_id=OWNER_ID, text=f"☝️ User {update.effective_user.first_name} ne file bheji")
+    except:
+        pass
 
 # ===== 7. BOT START =====
 if __name__ == "__main__":
@@ -356,10 +431,14 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("listcmd", list_cmd))
     app.add_handler(CommandHandler("setcontact", set_contact))
     app.add_handler(CommandHandler("stats", stats))
-    # ← NAYE COMMANDS ADD KIYE
     app.add_handler(CommandHandler("learn", learn_cmd))
     app.add_handler(CommandHandler("unlearn", unlearn_cmd))
+
+    # ← NAYE HANDLERS
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo)) # ← IMAGE VISION KE LIYE
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
     print("Application started")
     app.run_polling()
