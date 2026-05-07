@@ -13,6 +13,7 @@ from urllib.parse import quote_plus
 import aiohttp
 from io import BytesIO
 import PyPDF2
+from difflib import SequenceMatcher # ← NAYA: Fuzzy ke liye
 
 # ===== 1. SETUP =====
 logging.basicConfig(level=logging.INFO)
@@ -41,11 +42,11 @@ USER_DATA = {}
 MAX_MEMORY = 10
 CUSTOM_COMMANDS_FILE = "custom_commands.json"
 LEARNED_REPLIES_FILE = "learned_replies.json"
-REMINDERS_FILE = "reminders.json" # ← NAYA: Reminders ke liye
+REMINDERS_FILE = "reminders.json"
 CONTACT_INFO = "Owner: @YourUsername"
 USER_COOLDOWN = {}
 COOLDOWN_TIME = 5
-LINK_PATTERN = re.compile(r'http[s]?://|t\.me/|www\.') # ← NAYA: Link detect
+LINK_PATTERN = re.compile(r'http[s]?://|t\.me/|www\.')
 
 try:
     with open(CUSTOM_COMMANDS_FILE, 'r') as f:
@@ -59,7 +60,6 @@ try:
 except:
     LEARNED_REPLIES = {}
 
-# ← NAYA: Reminders load karo
 try:
     with open(REMINDERS_FILE, 'r') as f:
         REMINDERS = json.load(f)
@@ -102,8 +102,17 @@ KNOWLEDGE = {
             "Are bhai {name} mention not 😄",
             "Bas khush reh {name} ❤️"
         ]
+    },
+    "sad": {
+        "patterns": ["sad", "dukhi", "udas", "man nahi", "mood off", "tension", "problem"],
+        "replies": [
+            "Kya hua {name} 😢 Bata kya dikkat hai? Main hu na",
+            "Arre {name} tension mat le 💪 Sab theek ho jayega",
+            "Bhai {name} mood off mat kar 😔 Chal baat karte hain"
+        ]
     }
 }
+
 SMART_FALLBACK = [
     "Bhai {name} net thoda slow hai 😅 Par tu suna kya haal hai?",
     "Arre {name} server busy hai. Tu chai pi le tab tak, main aa raha 2 min me ☕",
@@ -131,7 +140,6 @@ def save_learned_replies():
     with open(LEARNED_REPLIES_FILE, 'w') as f:
         json.dump(LEARNED_REPLIES, f, indent=2)
 
-# ← NAYA: Reminders save
 def save_reminders():
     with open(REMINDERS_FILE, 'w') as f:
         json.dump(REMINDERS, f, indent=2)
@@ -147,7 +155,6 @@ def check_cooldown(user_id):
     USER_COOLDOWN[user_id] = current_time
     return True
 
-# ← NAYA: DuckDuckGo Search Function
 async def search_google(query):
     try:
         url = f"https://api.duckduckgo.com/?q={quote_plus(query)}&format=json&no_html=1"
@@ -162,7 +169,7 @@ async def search_google(query):
     except:
         return None
 
-# ===== 4. SMART REPLY FUNCTION =====
+# ===== 4. SMART REPLY FUNCTION - FUZZY WALA =====
 async def get_smart_reply(user_msg, user_id, user_name):
     global GEMINI_CALLS, LAST_RESET_DATE, gemini_available, current_key_index
 
@@ -174,7 +181,11 @@ async def get_smart_reply(user_msg, user_id, user_name):
             current_key_index = 0
             genai.configure(api_key=API_KEYS[0])
 
-    user_msg_lower = user_msg.lower()
+    user_msg_lower = user_msg.lower().strip()
+
+    # ← NAYA: Helper 60% match check
+    def similar(a, b):
+        return SequenceMatcher(None, a, b).ratio() > 0.6
 
     if user_msg_lower in CUSTOM_COMMANDS:
         return CUSTOM_COMMANDS[user_msg_lower].format(name=user_name)
@@ -188,9 +199,15 @@ async def get_smart_reply(user_msg, user_id, user_name):
     USER_DATA[user_id]["count"] += 1
     USER_DATA[user_id]["last_msg"] = user_msg
 
+    # ← NAYA: FUZZY MATCHING - Purana regex hata diya
     for category, data in KNOWLEDGE.items():
         for pattern in data["patterns"]:
-            if re.search(r'\b' + pattern + r'\b', user_msg_lower):
+            # 3 tarike se check: exact, substring, 60% similar
+            if (pattern == user_msg_lower or
+                pattern in user_msg_lower or
+                user_msg_lower in pattern or
+                similar(pattern, user_msg_lower)):
+
                 reply = random.choice(data["replies"])
                 reply = reply.format(name=user_name, bot_name="RJ Bot", time=datetime.now().strftime("%I:%M %p"), count=USER_DATA[user_id]["count"])
                 USER_DATA[user_id]["memory"].append(f"U: {user_msg} | B: {reply}")
@@ -393,7 +410,6 @@ async def unlearn_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"❌ Ye to maine seekha hi nahi tha: {question}")
 
-# ← NAYA: GOOGLE SEARCH COMMAND
 async def google_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Use: /google python kya hai")
@@ -408,7 +424,6 @@ async def google_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"Bhai {update.effective_user.first_name} search nahi mila 😅 Gemini se puch le")
 
-# ← NAYA: REMINDER COMMAND
 async def remind_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
         await update.message.reply_text("Use: /remind 2h Call karna hai\nYa: /remind 30m Paani peena")
@@ -418,7 +433,6 @@ async def remind_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = " ".join(context.args[1:])
     user_id = str(update.effective_user.id)
 
-    # Parse time: 2h, 30m, 1d
     try:
         if 'h' in time_str:
             hours = int(time_str.replace('h', ''))
@@ -477,7 +491,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    # ← NAYA: Anti-Link for Groups
     if update.effective_chat.type in ['group', 'supergroup']:
         if LINK_PATTERN.search(update.message.text):
             try:
@@ -529,7 +542,6 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("🎤 Voice sun raha hu bhai... Par abhi text me hi reply dunga 😅\n\nTu likh ke bhej de na")
 
-# ← NAYA: PDF READER FUNCTION
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
@@ -539,7 +551,6 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     file_name = update.message.document.file_name
 
-    # PDF hai to padho
     if file_name.lower().endswith('.pdf'):
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         await update.message.reply_text("📄 PDF padh raha hu bhai... Ruk ja 5 sec")
@@ -550,11 +561,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pdf_reader = PyPDF2.PdfReader(BytesIO(pdf_bytes))
 
             text = ""
-            for page in pdf_reader.pages[:3]: # Pehle 3 page
+            for page in pdf_reader.pages[:3]:
                 text += page.extract_text()
 
             if text:
-                # Gemini se summary
                 summary_prompt = f"Is PDF ka summary 3 line me bata Hinglish me:\n\n{text[:3000]}"
                 model = genai.GenerativeModel('gemini-1.5-flash-latest')
                 response = await asyncio.to_thread(model.generate_content, summary_prompt)
@@ -575,7 +585,6 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
-# ← NAYA: WELCOME NEW MEMBER
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for member in update.message.new_chat_members:
         if member.id == context.bot.id:
@@ -587,10 +596,9 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"Kuch bhi puchna ho /start dabao"
             )
 
-# ← NAYA: REMINDER CHECKER BACKGROUND TASK
 async def check_reminders(app):
     while True:
-        await asyncio.sleep(60) # Har minute check
+        await asyncio.sleep(60)
         now = datetime.now()
         to_remove = []
 
@@ -616,7 +624,7 @@ async def check_reminders(app):
         if to_remove:
             save_reminders()
 
-# ===== 7. BOT START =====
+# ===== 7. BOT START - FIXED =====
 if __name__ == "__main__":
     print("Bot starting...")
     if not BOT_TOKEN:
@@ -633,17 +641,20 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("learn", learn_cmd))
     app.add_handler(CommandHandler("unlearn", unlearn_cmd))
-    app.add_handler(CommandHandler("google", google_cmd)) # ← NAYA
-    app.add_handler(CommandHandler("remind", remind_cmd)) # ← NAYA
+    app.add_handler(CommandHandler("google", google_cmd))
+    app.add_handler(CommandHandler("remind", remind_cmd))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_document)) # ← PDF READER
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member)) # ← WELCOME
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
 
-    # Background task for reminders
-    app.job_queue.run_once(lambda ctx: asyncio.create_task(check_reminders(app)), 1)
+    # ← NAYA FIX: JobQueue hata diya, direct asyncio
+    async def post_init(application):
+        asyncio.create_task(check_reminders(application))
+
+    app.post_init = post_init
 
     print("Application started")
     app.run_polling()
