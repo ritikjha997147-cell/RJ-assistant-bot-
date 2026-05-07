@@ -13,7 +13,7 @@ from urllib.parse import quote_plus
 import aiohttp
 from io import BytesIO
 import PyPDF2
-from difflib import SequenceMatcher # ← NAYA: Fuzzy ke liye
+from difflib import SequenceMatcher
 
 # ===== 1. SETUP =====
 logging.basicConfig(level=logging.INFO)
@@ -73,7 +73,7 @@ KNOWLEDGE = {
             "hlw", "hlo", "hy", "hay", "heyy", "helo",
             "namaste", "namaskar", "ram ram", "jai shree",
             "salaam", "assalam", "adaab", "sup", "yo",
-            "hola", "kaise ho", "kya haal", "kem cho"
+            "hola", "kaise ho", "kya haal", "kya haal hai", "kem cho"
         ],
         "replies": [
             "Haan bhai {name} 😎 Kya haal hai?",
@@ -169,7 +169,7 @@ async def search_google(query):
     except:
         return None
 
-# ===== 4. SMART REPLY FUNCTION - FUZZY WALA =====
+# ===== 4. SMART REPLY FUNCTION - FUZZY + GEMINI DM =====
 async def get_smart_reply(user_msg, user_id, user_name):
     global GEMINI_CALLS, LAST_RESET_DATE, gemini_available, current_key_index
 
@@ -183,9 +183,49 @@ async def get_smart_reply(user_msg, user_id, user_name):
 
     user_msg_lower = user_msg.lower().strip()
 
-    # ← NAYA: Helper 60% match check
     def similar(a, b):
         return SequenceMatcher(None, a, b).ratio() > 0.6
+
+    # ← NAYA: Natural language me DM list
+    dm_keywords = ["dm dikhao", "dm list", "users dikhao", "kisne msg", "kitne users", "dmlist", "dm wale", "user list"]
+    if any(keyword in user_msg_lower for keyword in dm_keywords):
+        if not is_owner(user_id):
+            return f"Bhai {user_name} ye to owner hi dekh sakta hai 😅"
+
+        if not USER_DATA:
+            return f"Bhai {user_name} abhi tak koi DM nahi aaya 😅"
+
+        users_list = []
+        for uid, data in USER_DATA.items():
+            users_list.append({
+                "name": data.get("name", "Unknown"),
+                "count": data.get("count", 0),
+                "last_msg": data.get("last_msg", "Kuch nahi")[:50]
+            })
+
+        dm_prompt = f"""
+        Tu RJ Bot ka owner assistant hai. Owner ne DM list mangi hai.
+
+        Total Users: {len(USER_DATA)}
+        User Data: {json.dumps(users_list[:15], ensure_ascii=False)}
+
+        RULE: Is data ko dilli wale style me mast list bana ke dikha.
+        Har user ka naam, kitne msg kiye, last msg kya tha - ye sab bata.
+        Hinglish me 4-5 line me reply de. Emoji use kar. Savage style me.
+        """
+
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
+            response = await asyncio.to_thread(model.generate_content, dm_prompt)
+            if response.text:
+                return response.text
+        except:
+            pass
+
+        msg = f"📬 **Total DM Users: {len(USER_DATA)}**\n\n"
+        for i, (uid, data) in enumerate(list(USER_DATA.items())[:10], 1):
+            msg += f"{i}. {data['name']} - {data['count']} msgs\n"
+        return msg
 
     if user_msg_lower in CUSTOM_COMMANDS:
         return CUSTOM_COMMANDS[user_msg_lower].format(name=user_name)
@@ -199,10 +239,9 @@ async def get_smart_reply(user_msg, user_id, user_name):
     USER_DATA[user_id]["count"] += 1
     USER_DATA[user_id]["last_msg"] = user_msg
 
-    # ← NAYA: FUZZY MATCHING - Purana regex hata diya
+    # ← FUZZY MATCHING
     for category, data in KNOWLEDGE.items():
         for pattern in data["patterns"]:
-            # 3 tarike se check: exact, substring, 60% similar
             if (pattern == user_msg_lower or
                 pattern in user_msg_lower or
                 user_msg_lower in pattern or
@@ -624,7 +663,7 @@ async def check_reminders(app):
         if to_remove:
             save_reminders()
 
-# ===== 7. BOT START - FIXED =====
+# ===== 7. BOT START =====
 if __name__ == "__main__":
     print("Bot starting...")
     if not BOT_TOKEN:
@@ -650,7 +689,6 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
 
-    # ← NAYA FIX: JobQueue hata diya, direct asyncio
     async def post_init(application):
         asyncio.create_task(check_reminders(application))
 
