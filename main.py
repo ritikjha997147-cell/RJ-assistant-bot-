@@ -4,6 +4,7 @@ import random
 import asyncio
 import logging
 import json
+import time # ← Naya import
 import google.generativeai as genai
 from datetime import datetime
 from telegram import Update
@@ -35,7 +36,9 @@ MODEL_LIST = [
 USER_DATA = {}
 MAX_MEMORY = 10
 CUSTOM_COMMANDS_FILE = "custom_commands.json"
-CONTACT_INFO = "Owner: @YourUsername" # Yaha apna contact daal
+CONTACT_INFO = "Owner: @YourUsername"
+USER_COOLDOWN = {} # ← NAYA: Anti-spam ke liye
+COOLDOWN_TIME = 5 # ← NAYA: 5 second wait
 
 # Load custom commands from file
 try:
@@ -50,6 +53,16 @@ KNOWLEDGE = {
         "replies": ["Haan bhai {name} 😎", "Kya haal {name}?", "Bol {name} kya scene hai"]
     }
 }
+
+# ← NAYA: Gemini fail ho to ye use hoga - Insan jaisa lagega
+SMART_FALLBACK = [
+    "Bhai {name} net thoda slow hai 😅 Par tu suna kya haal hai?",
+    "Arre {name} server busy hai. Tu chai pi le tab tak, main aa raha 2 min me ☕",
+    "Bhai {name} dimag hang ho gaya mera 🤯 Tu 2 sec me phir se pooch le",
+    "Oye {name} connection week hai aaj 😂 Par tu mast banda hai, bol kya help chahiye?",
+    "Bhai {name} technical dikkat aa gayi 💀 Par apni dosti to pakki hai na?"
+]
+
 DEFAULT_REPLIES = ["Bhai {name} samjha nahi 😅", "Phir se bol {name}"]
 GEMINI_CALLS = {i: 0 for i in range(len(API_KEYS))}
 LAST_RESET_DATE = datetime.now().date()
@@ -58,6 +71,7 @@ current_key_index = 0
 
 if gemini_available:
     genai.configure(api_key=API_KEYS[0])
+    os.environ["GRPC_DNS_RESOLVER"] = "native" # ← NAYA: India block fix
 
 # ===== 3. HELPER FUNCTIONS =====
 def save_custom_commands():
@@ -66,6 +80,15 @@ def save_custom_commands():
 
 def is_owner(user_id):
     return user_id == OWNER_ID
+
+# ← NAYA: Anti-spam check
+def check_cooldown(user_id):
+    current_time = time.time()
+    if user_id in USER_COOLDOWN:
+        if current_time - USER_COOLDOWN[user_id] < COOLDOWN_TIME:
+            return False
+    USER_COOLDOWN[user_id] = current_time
+    return True
 
 # ===== 4. SMART REPLY FUNCTION =====
 async def get_smart_reply(user_msg, user_id, user_name):
@@ -81,7 +104,7 @@ async def get_smart_reply(user_msg, user_id, user_name):
 
     user_msg_lower = user_msg.lower()
 
-    # 0. CUSTOM COMMAND CHECK - Sabse pehle
+    # 0. CUSTOM COMMAND CHECK
     if user_msg_lower in CUSTOM_COMMANDS:
         return CUSTOM_COMMANDS[user_msg_lower].format(name=user_name)
 
@@ -114,7 +137,7 @@ async def get_smart_reply(user_msg, user_id, user_name):
 
     # 4. GEMINI FALLBACK
     if not gemini_available:
-        reply = random.choice(DEFAULT_REPLIES).format(name=user_name)
+        reply = random.choice(SMART_FALLBACK).format(name=user_name) # ← BADLA: Smart fallback
         return reply
 
     pichli_baat = " | ".join(USER_DATA[user_id]["memory"][-3:])
@@ -126,6 +149,7 @@ async def get_smart_reply(user_msg, user_id, user_name):
 
     RULE: User kuch bhi puche - padhai, love, coding, politics - sabka jawab dena hai.
     Koi mana nahi karna. Hinglish me 2-3 line me reply de. Emoji use kar.
+    Insan jaisa dosti wala reply de, robot jaisa nahi.
     """
 
     for key_attempt in range(len(API_KEYS)):
@@ -168,11 +192,11 @@ async def get_smart_reply(user_msg, user_id, user_name):
             await app.bot.send_message(chat_id=OWNER_ID, text=f"🔄 KEY SWITCH\nKey {old_index+1} → Key {current_key_index+1}")
         except: pass
 
-    reply = f"Bhai {user_name} abhi net slow hai 😅 Par sun... {random.choice(['Tu mast banda hai', 'Chai pi le tab tak'])}"
+    reply = random.choice(SMART_FALLBACK).format(name=user_name) # ← BADLA: Smart fallback
     USER_DATA[user_id]["memory"].append(f"U: {user_msg} | B: {reply}")
     return reply
 
-# ===== 5. OWNER COMMANDS - NAYE FEATURE =====
+# ===== 5. OWNER COMMANDS =====
 async def add_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_owner(update.effective_user.id):
         await update.message.reply_text("Bhai ye command sirf owner ke liye hai 😅")
@@ -245,11 +269,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"RJ Bot chalu hai bhai 😎 Kuch bhi pooch le\n\nContact: {CONTACT_INFO}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    reply = await get_smart_reply(update.message.text, update.effective_user.id, update.effective_user.first_name)
+    user_id = update.effective_user.id
+    
+    # ← NAYA: Anti-spam check
+    if not check_cooldown(user_id):
+        await update.message.reply_text(f"Bhai {update.effective_user.first_name} ruk ja 5 sec 😂 Spam mat kar")
+        return
+    
+    # ← NAYA: Typing indicator
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    await asyncio.sleep(1) # 1 sec typing dikhega
+    
+    reply = await get_smart_reply(update.message.text, user_id, update.effective_user.first_name)
     await update.message.reply_text(reply)
 
 # ===== 7. BOT START =====
-if __name__ == "__main__":
+if __name__ == "__main__": # ← FIX: __name__ tha, name nahi
     print("Bot starting...")
     if not BOT_TOKEN:
         print("ERROR: BOT_TOKEN nahi mila")
@@ -257,16 +292,12 @@ if __name__ == "__main__":
 
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # Normal commands
     app.add_handler(CommandHandler("start", start))
-
-    # Owner commands - NAYE FEATURE
     app.add_handler(CommandHandler("addcmd", add_cmd))
     app.add_handler(CommandHandler("delcmd", del_cmd))
     app.add_handler(CommandHandler("listcmd", list_cmd))
     app.add_handler(CommandHandler("setcontact", set_contact))
     app.add_handler(CommandHandler("stats", stats))
-
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("Application started")
