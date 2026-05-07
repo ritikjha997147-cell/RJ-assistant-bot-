@@ -6,9 +6,13 @@ import logging
 import json
 import time
 import google.generativeai as genai
-from datetime import datetime
-from telegram import Update
+from datetime import datetime, timedelta
+from telegram import Update, ChatMember
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from urllib.parse import quote_plus
+import aiohttp
+from io import BytesIO
+import PyPDF2
 
 # ===== 1. SETUP =====
 logging.basicConfig(level=logging.INFO)
@@ -37,9 +41,11 @@ USER_DATA = {}
 MAX_MEMORY = 10
 CUSTOM_COMMANDS_FILE = "custom_commands.json"
 LEARNED_REPLIES_FILE = "learned_replies.json"
+REMINDERS_FILE = "reminders.json" # ← NAYA: Reminders ke liye
 CONTACT_INFO = "Owner: @YourUsername"
 USER_COOLDOWN = {}
 COOLDOWN_TIME = 5
+LINK_PATTERN = re.compile(r'http[s]?://|t\.me/|www\.') # ← NAYA: Link detect
 
 try:
     with open(CUSTOM_COMMANDS_FILE, 'r') as f:
@@ -52,6 +58,13 @@ try:
         LEARNED_REPLIES = json.load(f)
 except:
     LEARNED_REPLIES = {}
+
+# ← NAYA: Reminders load karo
+try:
+    with open(REMINDERS_FILE, 'r') as f:
+        REMINDERS = json.load(f)
+except:
+    REMINDERS = {}
 
 KNOWLEDGE = {
     "greeting": {
@@ -87,6 +100,11 @@ def save_learned_replies():
     with open(LEARNED_REPLIES_FILE, 'w') as f:
         json.dump(LEARNED_REPLIES, f, indent=2)
 
+# ← NAYA: Reminders save
+def save_reminders():
+    with open(REMINDERS_FILE, 'w') as f:
+        json.dump(REMINDERS, f, indent=2)
+
 def is_owner(user_id):
     return user_id == OWNER_ID
 
@@ -97,6 +115,21 @@ def check_cooldown(user_id):
             return False
     USER_COOLDOWN[user_id] = current_time
     return True
+
+# ← NAYA: DuckDuckGo Search Function
+async def search_google(query):
+    try:
+        url = f"https://api.duckduckgo.com/?q={quote_plus(query)}&format=json&no_html=1"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=10) as resp:
+                data = await resp.json()
+                if data.get('AbstractText'):
+                    return data['AbstractText'][:500]
+                elif data.get('RelatedTopics'):
+                    topics = [t['Text'] for t in data['RelatedTopics'][:2] if 'Text' in t]
+                    return " | ".join(topics)[:500] if topics else None
+    except:
+        return None
 
 # ===== 4. SMART REPLY FUNCTION =====
 async def get_smart_reply(user_msg, user_id, user_name):
@@ -203,7 +236,6 @@ async def get_smart_reply(user_msg, user_id, user_name):
     USER_DATA[user_id]["memory"].append(f"U: {user_msg} | B: {reply}")
     return reply
 
-# ← NAYA: IMAGE VISION KE LIYE GEMINI FUNCTION
 async def get_image_reply(image_bytes, user_prompt, user_name):
     global GEMINI_CALLS, current_key_index, gemini_available
 
@@ -224,7 +256,7 @@ async def get_image_reply(image_bytes, user_prompt, user_name):
         genai.configure(api_key=current_key)
 
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash-latest') # Vision model
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
             image_part = {"mime_type": "image/jpeg", "data": image_bytes}
             response = await asyncio.to_thread(model.generate_content, [prompt, image_part])
 
@@ -330,6 +362,61 @@ async def unlearn_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"❌ Ye to maine seekha hi nahi tha: {question}")
 
+# ← NAYA: GOOGLE SEARCH COMMAND
+async def google_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Use: /google python kya hai")
+        return
+
+    query = " ".join(context.args)
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+
+    result = await search_google(query)
+    if result:
+        await update.message.reply_text(f"🔍 Google Search: {query}\n\n{result}")
+    else:
+        await update.message.reply_text(f"Bhai {update.effective_user.first_name} search nahi mila 😅 Gemini se puch le")
+
+# ← NAYA: REMINDER COMMAND
+async def remind_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 2:
+        await update.message.reply_text("Use: /remind 2h Call karna hai\nYa: /remind 30m Paani peena")
+        return
+
+    time_str = context.args[0].lower()
+    msg = " ".join(context.args[1:])
+    user_id = str(update.effective_user.id)
+
+    # Parse time: 2h, 30m, 1d
+    try:
+        if 'h' in time_str:
+            hours = int(time_str.replace('h', ''))
+            delta = timedelta(hours=hours)
+        elif 'm' in time_str:
+            mins = int(time_str.replace('m', ''))
+            delta = timedelta(minutes=mins)
+        elif 'd' in time_str:
+            days = int(time_str.replace('d', ''))
+            delta = timedelta(days=days)
+        else:
+            await update.message.reply_text("❌ Time format: 2h ya 30m ya 1d")
+            return
+
+        remind_time = datetime.now() + delta
+        if user_id not in REMINDERS:
+            REMINDERS[user_id] = []
+
+        REMINDERS[user_id].append({
+            "time": remind_time.isoformat(),
+            "msg": msg,
+            "chat_id": update.effective_chat.id
+        })
+        save_reminders()
+
+        await update.message.reply_text(f"✅ Done bhai! {time_str} baad yaad dila dunga:\n{msg}")
+    except:
+        await update.message.reply_text("❌ Galat format. Use: /remind 2h message")
+
 async def set_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global CONTACT_INFO
     if not is_owner(update.effective_user.id):
@@ -349,15 +436,28 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     total_users = len(USER_DATA)
     total_calls = sum(GEMINI_CALLS.values())
-    msg = f"📊 Bot Stats:\n\n👥 Total Users: {total_users}\n🤖 Gemini Calls: {total_calls}\n🔑 Active Key: {current_key_index+1}\n💬 Custom Commands: {len(CUSTOM_COMMANDS)}\n🧠 Learned Replies: {len(LEARNED_REPLIES)}"
+    msg = f"📊 Bot Stats:\n\n👥 Total Users: {total_users}\n🤖 Gemini Calls: {total_calls}\n🔑 Active Key: {current_key_index+1}\n💬 Custom Commands: {len(CUSTOM_COMMANDS)}\n🧠 Learned Replies: {len(LEARNED_REPLIES)}\n⏰ Active Reminders: {sum(len(v) for v in REMINDERS.values())}"
     await update.message.reply_text(msg)
 
 # ===== 6. NORMAL HANDLERS =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"RJ Bot chalu hai bhai 😎 Kuch bhi pooch le\nPhoto bhej ke bhi puch sakta hai 📸\n\nContact: {CONTACT_INFO}")
+    await update.message.reply_text(f"RJ Bot chalu hai bhai 😎\n\n📸 Photo bhejo → Bataunga kya hai\n📄 PDF bhejo → Summary dunga\n🔍 /google → Search karunga\n⏰ /remind 2h → Yaad dilaunga\n\nContact: {CONTACT_INFO}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+
+    # ← NAYA: Anti-Link for Groups
+    if update.effective_chat.type in ['group', 'supergroup']:
+        if LINK_PATTERN.search(update.message.text):
+            try:
+                await update.message.delete()
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"@{update.effective_user.username or update.effective_user.first_name} bhai link allowed nahi hai 🚫"
+                )
+                return
+            except:
+                pass
 
     if not check_cooldown(user_id):
         await update.message.reply_text(f"Bhai {update.effective_user.first_name} ruk ja 5 sec 😂 Spam mat kar")
@@ -371,7 +471,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply = await get_smart_reply(user_text, user_id, update.effective_user.first_name)
     await update.message.reply_text(reply)
 
-# ← NAYA: PHOTO HANDLE KARNE KA FUNCTION - IMAGE VISION
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
@@ -382,11 +481,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
 
-    # Photo download karo
     photo_file = await update.message.photo[-1].get_file()
     photo_bytes = await photo_file.download_as_bytearray()
 
-    # Caption hai to wo prompt banega
     user_prompt = update.message.caption or ""
 
     reply = await get_image_reply(photo_bytes, user_prompt, user_name)
@@ -401,20 +498,92 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("🎤 Voice sun raha hu bhai... Par abhi text me hi reply dunga 😅\n\nTu likh ke bhej de na")
 
+# ← NAYA: PDF READER FUNCTION
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    user_name = update.effective_user.first_name
 
     if not check_cooldown(user_id):
         return
 
     file_name = update.message.document.file_name
-    await update.message.reply_text(f"📄 File mil gayi: {file_name}\n\nBhai abhi main PDF padh nahi sakta 😅 Owner ko forward kar diya")
 
-    try:
-        await context.bot.forward_message(chat_id=OWNER_ID, from_chat_id=update.effective_chat.id, message_id=update.message.message_id)
-        await context.bot.send_message(chat_id=OWNER_ID, text=f"☝️ User {update.effective_user.first_name} ne file bheji")
-    except:
-        pass
+    # PDF hai to padho
+    if file_name.lower().endswith('.pdf'):
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        await update.message.reply_text("📄 PDF padh raha hu bhai... Ruk ja 5 sec")
+
+        try:
+            pdf_file = await update.message.document.get_file()
+            pdf_bytes = await pdf_file.download_as_bytearray()
+            pdf_reader = PyPDF2.PdfReader(BytesIO(pdf_bytes))
+
+            text = ""
+            for page in pdf_reader.pages[:3]: # Pehle 3 page
+                text += page.extract_text()
+
+            if text:
+                # Gemini se summary
+                summary_prompt = f"Is PDF ka summary 3 line me bata Hinglish me:\n\n{text[:3000]}"
+                model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                response = await asyncio.to_thread(model.generate_content, summary_prompt)
+
+                if response.text:
+                    await update.message.reply_text(f"📄 PDF Summary:\n\n{response.text}")
+                else:
+                    await update.message.reply_text("Bhai PDF khali lag rahi hai 😅")
+            else:
+                await update.message.reply_text("❌ PDF se text nahi nikal paya. Shayad scanned hai")
+        except Exception as e:
+            await update.message.reply_text(f"❌ PDF error: {str(e)[:100]}")
+    else:
+        await update.message.reply_text(f"📄 File mil gayi: {file_name}\n\nAbhi sirf PDF padh sakta hu bhai 😅")
+
+        try:
+            await context.bot.forward_message(chat_id=OWNER_ID, from_chat_id=update.effective_chat.id, message_id=update.message.message_id)
+        except:
+            pass
+
+# ← NAYA: WELCOME NEW MEMBER
+async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    for member in update.message.new_chat_members:
+        if member.id == context.bot.id:
+            await update.message.reply_text("😎 RJ Bot aa gaya hai! /start dabao")
+        else:
+            await update.message.reply_text(
+                f"Welcome {member.first_name} bhai! 🎉\n\n"
+                f"Rules: 1) Gaali nahi 2) Link nahi 3) Bot se dosti kar 😎\n"
+                f"Kuch bhi puchna ho /start dabao"
+            )
+
+# ← NAYA: REMINDER CHECKER BACKGROUND TASK
+async def check_reminders(app):
+    while True:
+        await asyncio.sleep(60) # Har minute check
+        now = datetime.now()
+        to_remove = []
+
+        for user_id, user_reminders in REMINDERS.items():
+            for reminder in user_reminders[:]:
+                remind_time = datetime.fromisoformat(reminder['time'])
+                if now >= remind_time:
+                    try:
+                        await app.bot.send_message(
+                            chat_id=reminder['chat_id'],
+                            text=f"⏰ Reminder bhai!\n\n{reminder['msg']}"
+                        )
+                        user_reminders.remove(reminder)
+                    except:
+                        pass
+
+            if not user_reminders:
+                to_remove.append(user_id)
+
+        for user_id in to_remove:
+            del REMINDERS[user_id]
+
+        if to_remove:
+            save_reminders()
 
 # ===== 7. BOT START =====
 if __name__ == "__main__":
@@ -433,12 +602,17 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("learn", learn_cmd))
     app.add_handler(CommandHandler("unlearn", unlearn_cmd))
+    app.add_handler(CommandHandler("google", google_cmd)) # ← NAYA
+    app.add_handler(CommandHandler("remind", remind_cmd)) # ← NAYA
 
-    # ← NAYE HANDLERS
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo)) # ← IMAGE VISION KE LIYE
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document)) # ← PDF READER
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member)) # ← WELCOME
+
+    # Background task for reminders
+    app.job_queue.run_once(lambda ctx: asyncio.create_task(check_reminders(app)), 1)
 
     print("Application started")
     app.run_polling()
