@@ -25,16 +25,36 @@ PENDING_VERIFICATION = {}
 BOT_PERSONALITY = "savage"
 
 # ===== 3. DATABASE FUNCTIONS (Naya safe logic) =====
-
 async def load_data_from_telegram(app):
     global USER_DATA
     if not DATABASE_CHANNEL_ID:
         print("⚠️ No Database ID found!")
         return
     try:
-        # Naya logic yahan aayega...
-        messages = await app.bot.get_chat_history(chat_id=DATABASE_CHANNEL_ID, limit=10)
-        # ... baaki lines ...
+        # Purana logic 'get_chat_history' aksar version conflict deta hai
+        # Isliye hum seedha bot object se query kar rahe hain
+        bot = app.bot
+        chat_id = DATABASE_CHANNEL_ID
+        
+        # Method check: Pehle messages mangwao
+        try:
+            # Hum seedha raw API call ki tarah check kar rahe hain
+            messages = await bot.get_chat(chat_id) 
+            # Note: get_chat_history version compatibility ke liye try-except mein rakha hai
+            history = await app.bot.get_chat_history(chat_id=chat_id, limit=5)
+            
+            async for message in history:
+                if message.text and "{" in message.text:
+                    try:
+                        USER_DATA = json.loads(message.text)
+                        print("✅ Cloud Memory Loaded Successfully!")
+                        return
+                    except:
+                        continue
+        except Exception as inner_e:
+            print(f"ℹ️ History fetch skipped or failed: {inner_e}")
+            
+        print("ℹ️ Starting fresh - No valid JSON found.")
     except Exception as e:
         print(f"⚠️ Start fresh error: {e}")
         USER_DATA = {}
