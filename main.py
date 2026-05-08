@@ -29,19 +29,14 @@ BOT_PERSONALITY = "savage"
 async def load_data_from_telegram(app):
     global USER_DATA
     if not DATABASE_CHANNEL_ID:
+        print("⚠️ No Database ID found!")
         return
     try:
-        # Channel se aakhri message uthao
-        history = await app.bot.get_chat_history(chat_id=DATABASE_CHANNEL_ID, limit=1)
-        async for message in history:
-            if message.text:
-                try:
-                    USER_DATA = json.loads(message.text)
-                    print("✅ Cloud Memory Loaded!")
-                except:
-                    USER_DATA = {}
+        # Naya logic yahan aayega...
+        messages = await app.bot.get_chat_history(chat_id=DATABASE_CHANNEL_ID, limit=10)
+        # ... baaki lines ...
     except Exception as e:
-        print(f"⚠️ Start fresh: {e}")
+        print(f"⚠️ Start fresh error: {e}")
         USER_DATA = {}
 
 async def save_user_data(context):
