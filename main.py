@@ -9,11 +9,10 @@ from io import BytesIO
 import PyPDF2
 from difflib import SequenceMatcher
 
-# ===== 1. SETUP (Wahi Purana) =====
+# ===== 1. SETUP =====
 logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
-# DATABASE_CHANNEL_ID Railway variables mein set hona chahiye (e.g., -100xxx)
 DATABASE_CHANNEL_ID = os.getenv("DATABASE_CHANNEL_ID") 
 API_KEYS = [os.getenv(f"GEMINI_API_KEY_{i}") for i in range(1, 5) if os.getenv(f"GEMINI_API_KEY_{i}")]
 
@@ -24,26 +23,20 @@ COOLDOWN_TIME = 5
 PENDING_VERIFICATION = {} 
 BOT_PERSONALITY = "savage"
 
-# ===== 3. DATABASE FUNCTIONS (Naya safe logic) =====
+# ===== 3. DATABASE FUNCTIONS (New Integrated Safe Logic) =====
 async def load_data_from_telegram(app):
     global USER_DATA
     if not DATABASE_CHANNEL_ID:
         print("⚠️ No Database ID found!")
         return
     try:
-        # Purana logic 'get_chat_history' aksar version conflict deta hai
-        # Isliye hum seedha bot object se query kar rahe hain
-        bot = app.bot
-        chat_id = DATABASE_CHANNEL_ID
+        # app.bot ko directly use karein bina kisi naye variable ke
+        # Isse 'ExtBot' attribute error nahi aayega v20.7 mein
+        messages = await app.bot.get_chat_history(chat_id=DATABASE_CHANNEL_ID, limit=10)
         
-        # Method check: Pehle messages mangwao
+        # v20 mein history ek async generator ho sakti hai
         try:
-            # Hum seedha raw API call ki tarah check kar rahe hain
-            messages = await bot.get_chat(chat_id) 
-            # Note: get_chat_history version compatibility ke liye try-except mein rakha hai
-            history = await app.bot.get_chat_history(chat_id=chat_id, limit=5)
-            
-            async for message in history:
+            async for message in messages:
                 if message.text and "{" in message.text:
                     try:
                         USER_DATA = json.loads(message.text)
@@ -51,12 +44,20 @@ async def load_data_from_telegram(app):
                         return
                     except:
                         continue
-        except Exception as inner_e:
-            print(f"ℹ️ History fetch skipped or failed: {inner_e}")
-            
+        except TypeError:
+            # Agar list format mein hai toh normal loop chalega
+            for message in messages:
+                if message.text and "{" in message.text:
+                    try:
+                        USER_DATA = json.loads(message.text)
+                        print("✅ Cloud Memory Loaded Successfully!")
+                        return
+                    except:
+                        continue
+
         print("ℹ️ Starting fresh - No valid JSON found.")
     except Exception as e:
-        print(f"⚠️ Start fresh error: {e}")
+        print(f"⚠️ Load Error: {e}")
         USER_DATA = {}
 
 async def save_user_data(context):
@@ -112,9 +113,8 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except: pass
     await update.message.reply_text(f"✅ Sent to {count} users.")
 
-# ===== 5. MAIN MESSAGE HANDLER (Fixing the Error) =====
+# ===== 5. MAIN MESSAGE HANDLER =====
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # CRITICAL FIX: 'NoneType' error handle karne ke liye
     if not update.effective_user or not update.message or not update.message.text:
         return
 
@@ -128,7 +128,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if int(text) == PENDING_VERIFICATION[user_id]:
                 del PENDING_VERIFICATION[user_id]
                 USER_DATA[str(user_id)] = {"name": user_name, "count": 0}
-                await save_user_data(context) # Naya user aate hi backup
+                await save_user_data(context)
                 await update.message.reply_text("✅ Pass ho gaya bhai! Ab bol kya scene hai?")
             else:
                 await update.message.reply_text("❌ Galat! Phir se try kar.")
@@ -154,7 +154,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if str(user_id) in USER_DATA:
             USER_DATA[str(user_id)]["count"] += 1
-            # Har 10 messages par backup lega
             if USER_DATA[str(user_id)]["count"] % 10 == 0:
                 await save_user_data(context)
                 
@@ -167,7 +166,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     app = Application.builder().token(BOT_TOKEN).build()
     
-    # Start hote hi data load karo
+    # Run the initial data load
     loop = asyncio.get_event_loop()
     loop.run_until_complete(load_data_from_telegram(app))
 
