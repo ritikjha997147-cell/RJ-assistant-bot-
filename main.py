@@ -26,9 +26,8 @@ BOT_PERSONALITY = "savage"
 # ===== 3. DATABASE FUNCTIONS (New Integrated Safe Logic) =====
 async def load_data_from_telegram(app):
     global USER_DATA
-    if not DATABASE_CHANNEL_ID:
-        print("⚠️ No Database ID found!")
-        return
+    USER_DATA = {} # Abhi khali rakho
+    print("✅ System Ready: Memory initialized to fresh.")
     try:
         # app.bot ko directly use karein bina kisi naye variable ke
         # Isse 'ExtBot' attribute error nahi aayega v20.7 mein
