@@ -3,11 +3,6 @@ import google.generativeai as genai
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from urllib.parse import quote_plus
-import aiohttp
-from io import BytesIO
-import PyPDF2
-from difflib import SequenceMatcher
 
 # ===== 1. SETUP =====
 logging.basicConfig(level=logging.INFO)
@@ -23,47 +18,23 @@ COOLDOWN_TIME = 5
 PENDING_VERIFICATION = {} 
 BOT_PERSONALITY = "savage"
 
-# ===== 3. DATABASE FUNCTIONS (New Integrated Safe Logic) =====
+# ===== 3. DATABASE FUNCTIONS (CLEANED) =====
 async def load_data_from_telegram(app):
+    """
+    Startup par memory initialize karta hai. 
+    Note: 'get_chat_history' bots support nahi karte, isliye 
+    hum memory ko fresh start kar rahe hain conflict se bachne ke liye.
+    """
     global USER_DATA
-    USER_DATA = {} # Abhi khali rakho
-    print("✅ System Ready: Memory initialized to fresh.")
-    try:
-        # app.bot ko directly use karein bina kisi naye variable ke
-        # Isse 'ExtBot' attribute error nahi aayega v20.7 mein
-        messages = await app.bot.get_chat_history(chat_id=DATABASE_CHANNEL_ID, limit=10)
-        
-        # v20 mein history ek async generator ho sakti hai
-        try:
-            async for message in messages:
-                if message.text and "{" in message.text:
-                    try:
-                        USER_DATA = json.loads(message.text)
-                        print("✅ Cloud Memory Loaded Successfully!")
-                        return
-                    except:
-                        continue
-        except TypeError:
-            # Agar list format mein hai toh normal loop chalega
-            for message in messages:
-                if message.text and "{" in message.text:
-                    try:
-                        USER_DATA = json.loads(message.text)
-                        print("✅ Cloud Memory Loaded Successfully!")
-                        return
-                    except:
-                        continue
-
-        print("ℹ️ Starting fresh - No valid JSON found.")
-    except Exception as e:
-        print(f"⚠️ Load Error: {e}")
-        USER_DATA = {}
+    USER_DATA = {} 
+    print("✅ System Ready: Memory initialized to fresh. Startup stable.")
 
 async def save_user_data(context):
+    """Database channel mein JSON save karta hai."""
     if not DATABASE_CHANNEL_ID: return
     try:
         data_string = json.dumps(USER_DATA, ensure_ascii=False)
-        await context.bot.send_message(chat_id=DATABASE_CHANNEL_ID, text=data_string)
+        await context.bot.send_message(chat_id=DATABASE_CHANNEL_ID, text=f"☁️ CLOUD_SAVE:\n{data_string}")
     except Exception as e:
         print(f"❌ Save Error: {e}")
 
@@ -144,31 +115,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 3. Gemini Logic
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     
-    system_prompt = "Tu RJ ka dost hai, dilli ka savage chhora." if BOT_PERSONALITY == "savage" else "Tu ek professional consultant hai."
+    system_prompt = "Tu RJ ka dost hai, dilli ka savage chhora. Use Hinglish mixed with Delhi slang." if BOT_PERSONALITY == "savage" else "Tu ek professional consultant hai."
 
     try:
-        genai.configure(api_key=random.choice(API_KEYS))
+        active_keys = [k for k in API_KEYS if k]
+        if not active_keys:
+            await update.message.reply_text("Bhai API keys gayab hain!")
+            return
+
+        genai.configure(api_key=random.choice(active_keys))
         model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Async call
         response = await asyncio.to_thread(model.generate_content, f"{system_prompt}\nUser {user_name}: {text}")
         
         if str(user_id) in USER_DATA:
             USER_DATA[str(user_id)]["count"] += 1
+            # Har 10th message par auto-save
             if USER_DATA[str(user_id)]["count"] % 10 == 0:
                 await save_user_data(context)
                 
         await update.message.reply_text(response.text)
     except Exception as e:
         print(f"Gemini Error: {e}")
-        await update.message.reply_text("Bhai technical error hai, 2 min rukh ja. ☕")
+        await update.message.reply_text("Bhai technical error hai, thodi der mein try kar. ☕")
 
 # ===== 6. RUN BOT =====
 if __name__ == "__main__":
     app = Application.builder().token(BOT_TOKEN).build()
     
-    # Run the initial data load
+    # Startup memory init
     loop = asyncio.get_event_loop()
     loop.run_until_complete(load_data_from_telegram(app))
 
+    # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("mood", set_mood))
