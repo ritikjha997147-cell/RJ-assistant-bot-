@@ -149,7 +149,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         genai.configure(api_key=random.choice(API_KEYS))
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = await asyncio.to_thread(model.generate_content, f"{system_prompt}\nUser {user_name}: {text}")
         
         if str(user_id) in USER_DATA:
