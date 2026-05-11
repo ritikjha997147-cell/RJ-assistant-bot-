@@ -1,5 +1,6 @@
 import os, re, random, asyncio, logging, json, time
 from groq import Groq
+from duckduckgo_search import DDGS # Web search import
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -36,6 +37,8 @@ def is_owner(user_id):
     return user_id == OWNER_ID
 
 # ===== 4. HANDLERS =====
+
+# Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user: return
     user_id = update.effective_user.id
@@ -49,8 +52,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Oye {user_name}! Bot use karne se pehle ye bata: **{num1} + {num2} = ?**"
         )
         return
-    await update.message.reply_text(f"RJ Bot active hai bhai! 😎\nMode: {BOT_PERSONALITY.capitalize()}")
+    await update.message.reply_text(f"RJ Bot active hai bhai! 😎\nMode: {BOT_PERSONALITY.capitalize()}\nWeb Search: ON (/search)")
 
+# Mood Command
 async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global BOT_PERSONALITY
     if not is_owner(update.effective_user.id): return
@@ -61,6 +65,32 @@ async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mood in ["savage", "formal"]:
         BOT_PERSONALITY = mood
         await update.message.reply_text(f"✅ Mood set to {mood}")
+
+# Web Search Command
+async def web_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Bhai, kya search karna hai? Topic toh likho! \nUsage: `/search Delhi Weather`")
+        return
+
+    query = " ".join(context.args)
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+
+    try:
+        results = []
+        with DDGS() as ddgs:
+            # Top 3 results for speed
+            for r in ddgs.text(query, max_results=3):
+                results.append(f"🔹 **{r['title']}**\n🔗 {r['href']}")
+
+        if results:
+            response = f"🔍 **Search Results for '{query}':**\n\n" + "\n\n".join(results)
+            await update.message.reply_text(response, disable_web_page_preview=True)
+        else:
+            await update.message.reply_text("Bhai, internet par kuch mila hi nahi is baare mein. 🤷‍♂️")
+
+    except Exception as e:
+        logging.error(f"Search Error: {e}")
+        await update.message.reply_text("Bhai search engine atak gaya, thodi der mein try kar. ☕")
 
 # ===== 5. MAIN MESSAGE HANDLER =====
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -82,7 +112,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text("❌ Galat! Phir se try kar.")
             return
-        except: return
+        except: 
+            return
 
     # 2. Cooldown
     now = time.time()
@@ -131,9 +162,11 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(load_data_from_telegram(app))
 
+    # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("mood", set_mood))
+    app.add_handler(CommandHandler("search", web_search)) # Search handler added
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("RJ BOT PRO Upgraded with Groq & LIVE! 🚀")
+    print("RJ BOT PRO Upgraded with Groq & Web Search LIVE! 🚀")
     app.run_polling()
