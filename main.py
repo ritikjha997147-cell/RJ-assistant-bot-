@@ -9,14 +9,14 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
-DATABASE_CHANNEL_ID = os.getenv("DATABASE_CHANNEL_ID") 
+DATABASE_CHANNEL_ID = os.getenv("DATABASE_CHANNEL_ID")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # ===== 2. GLOBAL VARIABLES =====
 USER_DATA = {}
 USER_COOLDOWN = {}
 COOLDOWN_TIME = 5
-PENDING_VERIFICATION = {} 
+PENDING_VERIFICATION = {}
 BOT_PERSONALITY = "savage"
 
 # ===== 3. DATABASE FUNCTIONS =====
@@ -165,7 +165,7 @@ if __name__ == "__main__":
     # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("mood", set_mood))
-    app.add_handler(CommandHandler("search", web_search)) # Search handler added
+    app.add_handler(CommandHandler("search", web_search)) 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     print("RJ BOT PRO Upgraded with Groq & Web Search LIVE! 🚀")
