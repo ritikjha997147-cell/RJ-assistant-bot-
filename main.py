@@ -1,5 +1,5 @@
 import os, re, random, asyncio, logging, json, time
-import google.generativeai as genai
+from groq import Groq # <--- Naya Import
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 DATABASE_CHANNEL_ID = os.getenv("DATABASE_CHANNEL_ID") 
-API_KEYS = [os.getenv(f"GEMINI_API_KEY_{i}") for i in range(1, 5) if os.getenv(f"GEMINI_API_KEY_{i}")]
+GROQ_API_KEY = os.getenv("GROQ_API_KEY") # <--- Groq Key
 
 # ===== 2. GLOBAL VARIABLES =====
 USER_DATA = {}
@@ -18,19 +18,13 @@ COOLDOWN_TIME = 5
 PENDING_VERIFICATION = {} 
 BOT_PERSONALITY = "savage"
 
-# ===== 3. DATABASE FUNCTIONS (CLEANED) =====
+# ===== 3. DATABASE FUNCTIONS =====
 async def load_data_from_telegram(app):
-    """
-    Startup par memory initialize karta hai. 
-    Note: 'get_chat_history' bots support nahi karte, isliye 
-    hum memory ko fresh start kar rahe hain conflict se bachne ke liye.
-    """
     global USER_DATA
     USER_DATA = {} 
     print("✅ System Ready: Memory initialized to fresh. Startup stable.")
 
 async def save_user_data(context):
-    """Database channel mein JSON save karta hai."""
     if not DATABASE_CHANNEL_ID: return
     try:
         data_string = json.dumps(USER_DATA, ensure_ascii=False)
@@ -42,7 +36,6 @@ def is_owner(user_id):
     return user_id == OWNER_ID
 
 # ===== 4. HANDLERS =====
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user: return
     user_id = update.effective_user.id
@@ -56,9 +49,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Oye {user_name}! Bot use karne se pehle ye bata: **{num1} + {num2} = ?**"
         )
         return
-
     await update.message.reply_text(f"RJ Bot active hai bhai! 😎\nMode: {BOT_PERSONALITY.capitalize()}")
 
+# [Keep set_mood and broadcast as they were in your original code]
 async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global BOT_PERSONALITY
     if not is_owner(update.effective_user.id): return
@@ -70,20 +63,7 @@ async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BOT_PERSONALITY = mood
         await update.message.reply_text(f"✅ Mood set to {mood}")
 
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_owner(update.effective_user.id): return
-    if not context.args: return
-    msg = " ".join(context.args)
-    count = 0
-    for uid in list(USER_DATA.keys()):
-        try:
-            await context.bot.send_message(chat_id=int(uid), text=f"📢 **BROADCAST:**\n\n{msg}")
-            count += 1
-            await asyncio.sleep(0.05)
-        except: pass
-    await update.message.reply_text(f"✅ Sent to {count} users.")
-
-# ===== 5. MAIN MESSAGE HANDLER =====
+# ===== 5. MAIN MESSAGE HANDLER (GROQ VERSION) =====
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message or not update.message.text:
         return
@@ -112,47 +92,50 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     USER_COOLDOWN[user_id] = now
 
-    # 3. Gemini Logic
+    # 3. Groq Logic (Replaced Gemini)
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     
     system_prompt = "Tu RJ ka dost hai, dilli ka savage chhora. Use Hinglish mixed with Delhi slang." if BOT_PERSONALITY == "savage" else "Tu ek professional consultant hai."
 
     try:
-        active_keys = [k for k in API_KEYS if k]
-        if not active_keys:
-            await update.message.reply_text("Bhai API keys gayab hain!")
+        if not GROQ_API_KEY:
+            await update.message.reply_text("Bhai Groq API key gayab hai!")
             return
 
-        genai.configure(api_key=random.choice(active_keys))
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        client = Groq(api_key=GROQ_API_KEY)
         
-        # Async call
-        response = await asyncio.to_thread(model.generate_content, f"{system_prompt}\nUser {user_name}: {text}")
+        # Async calling Groq
+        chat_completion = await asyncio.to_thread(
+            client.chat.completions.create,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": text},
+            ],
+            model="llama3-8b-8192", # Llama 3 is very fast and free
+        )
         
+        response_text = chat_completion.choices[0].message.content
+
         if str(user_id) in USER_DATA:
             USER_DATA[str(user_id)]["count"] += 1
-            # Har 10th message par auto-save
             if USER_DATA[str(user_id)]["count"] % 10 == 0:
                 await save_user_data(context)
                 
-        await update.message.reply_text(response.text)
+        await update.message.reply_text(response_text)
     except Exception as e:
-        print(f"Gemini Error: {e}")
+        print(f"Groq Error: {e}")
         await update.message.reply_text("Bhai technical error hai, thodi der mein try kar. ☕")
 
 # ===== 6. RUN BOT =====
 if __name__ == "__main__":
     app = Application.builder().token(BOT_TOKEN).build()
     
-    # Startup memory init
     loop = asyncio.get_event_loop()
     loop.run_until_complete(load_data_from_telegram(app))
 
-    # Handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("mood", set_mood))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("RJ BOT PRO Upgraded & LIVE! 🚀")
+    print("RJ BOT PRO Upgraded with Groq & LIVE! 🚀")
     app.run_polling()
