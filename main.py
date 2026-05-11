@@ -66,7 +66,7 @@ async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BOT_PERSONALITY = mood
         await update.message.reply_text(f"✅ Mood set to {mood}")
 
-# Web Search Command
+# Web Search Command (Improved Version)
 async def web_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Bhai, kya search karna hai? Topic toh likho! \nUsage: `/search Delhi Weather`")
@@ -77,20 +77,23 @@ async def web_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         results = []
+        # Region 'wt-wt' helps avoid local blocks, 'on' ensures safe results
         with DDGS() as ddgs:
-            # Top 3 results for speed
-            for r in ddgs.text(query, max_results=3):
+            search_gen = ddgs.text(query, region='wt-wt', safesearch='on', timelimit='y')
+            
+            for i, r in enumerate(search_gen):
+                if i >= 3: break # Sirf top 3 results
                 results.append(f"🔹 **{r['title']}**\n🔗 {r['href']}")
 
         if results:
             response = f"🔍 **Search Results for '{query}':**\n\n" + "\n\n".join(results)
             await update.message.reply_text(response, disable_web_page_preview=True)
         else:
-            await update.message.reply_text("Bhai, internet par kuch mila hi nahi is baare mein. 🤷‍♂️")
+            await update.message.reply_text(f"Bhai, '{query}' par internet par kuch nahi mila. Topic thoda badal kar ya English mein try kar! 🤷‍♂️")
 
     except Exception as e:
         logging.error(f"Search Error: {e}")
-        await update.message.reply_text("Bhai search engine atak gaya, thodi der mein try kar. ☕")
+        await update.message.reply_text("Bhai search engine atak gaya (Rate Limit). Thodi der rukk kar try kar! ☕")
 
 # ===== 5. MAIN MESSAGE HANDLER =====
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
