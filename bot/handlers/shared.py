@@ -1,1 +1,1 @@
-
+BOT_PERSONALITY = "savage"
