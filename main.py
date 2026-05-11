@@ -1,5 +1,5 @@
 import os, re, random, asyncio, logging, json, time
-from groq import Groq # <--- Naya Import
+from groq import Groq
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 DATABASE_CHANNEL_ID = os.getenv("DATABASE_CHANNEL_ID") 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") # <--- Groq Key
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # ===== 2. GLOBAL VARIABLES =====
 USER_DATA = {}
@@ -51,7 +51,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(f"RJ Bot active hai bhai! 😎\nMode: {BOT_PERSONALITY.capitalize()}")
 
-# [Keep set_mood and broadcast as they were in your original code]
 async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global BOT_PERSONALITY
     if not is_owner(update.effective_user.id): return
@@ -63,7 +62,7 @@ async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BOT_PERSONALITY = mood
         await update.message.reply_text(f"✅ Mood set to {mood}")
 
-# ===== 5. MAIN MESSAGE HANDLER (GROQ VERSION) =====
+# ===== 5. MAIN MESSAGE HANDLER =====
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message or not update.message.text:
         return
@@ -92,26 +91,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     USER_COOLDOWN[user_id] = now
 
-    # 3. Groq Logic (Replaced Gemini)
+    # 3. Groq AI Logic
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     
     system_prompt = "Tu RJ ka dost hai, dilli ka savage chhora. Use Hinglish mixed with Delhi slang." if BOT_PERSONALITY == "savage" else "Tu ek professional consultant hai."
 
     try:
         if not GROQ_API_KEY:
-            await update.message.reply_text("Bhai Groq API key gayab hai!")
+            await update.message.reply_text("Bhai Groq API key gayab hai variables se!")
             return
 
         client = Groq(api_key=GROQ_API_KEY)
         
-        # Async calling Groq
         chat_completion = await asyncio.to_thread(
             client.chat.completions.create,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text},
             ],
-            model="llama3-8b-8192", # Llama 3 is very fast and free
+            model="llama-3.1-8b-instant", 
         )
         
         response_text = chat_completion.choices[0].message.content
@@ -123,7 +121,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
         await update.message.reply_text(response_text)
     except Exception as e:
-        print(f"Groq Error: {e}")
+        logging.error(f"Groq Error: {e}")
         await update.message.reply_text("Bhai technical error hai, thodi der mein try kar. ☕")
 
 # ===== 6. RUN BOT =====
