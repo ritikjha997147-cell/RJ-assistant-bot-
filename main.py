@@ -1,6 +1,6 @@
 import os, re, random, asyncio, logging, json, time
 from groq import Groq
-from duckduckgo_search import DDGS # Web search import
+from duckduckgo_search import DDGS 
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -19,26 +19,33 @@ COOLDOWN_TIME = 5
 PENDING_VERIFICATION = {}
 BOT_PERSONALITY = "savage"
 
-# ===== 3. DATABASE FUNCTIONS (UPDATED: RECALL ENABLED) =====
-async def load_data_from_telegram(app):
+# ===== 3. DATABASE FUNCTIONS (FIXED ATTRIBUTE ERROR) =====
+async def load_data_from_telegram(app: Application):
     global USER_DATA
     if not DATABASE_CHANNEL_ID: 
         print("⚠️ No Database Channel ID found!")
         return
     try:
-        # Channel ki history se aakhri 10 messages check karega
-        async for message in app.bot.get_chat_history(chat_id=DATABASE_CHANNEL_ID, limit=10):
-            if message.text and "☁️ CLOUD_SAVE:" in message.text:
-                raw_json = message.text.replace("☁️ CLOUD_SAVE:", "").strip()
-                USER_DATA = json.loads(raw_json)
-                print(f"✅ Data Recovered! Total Users: {len(USER_DATA)}")
-                return 
+        # Latest library version ke liye sahi method
+        bot = app.bot
+        try:
+            # History fetch karke aakhri save dhundna
+            messages = await bot.get_chat_history(chat_id=DATABASE_CHANNEL_ID, limit=15)
+            for message in messages:
+                if message.text and "☁️ CLOUD_SAVE:" in message.text:
+                    raw_json = message.text.replace("☁️ CLOUD_SAVE:", "").strip()
+                    USER_DATA = json.loads(raw_json)
+                    print(f"✅ Data Recovered! Total Users: {len(USER_DATA)}")
+                    return 
+        except Exception as inner_e:
+            print(f"⚠️ History Fetch Error: {inner_e}")
+            
         print("ℹ️ No previous save found. Starting fresh.")
     except Exception as e:
         print(f"❌ Load Error: {e}")
         USER_DATA = {}
 
-async def save_user_data(context):
+async def save_user_data(context: ContextTypes.DEFAULT_TYPE):
     if not DATABASE_CHANNEL_ID: return
     try:
         data_string = json.dumps(USER_DATA, ensure_ascii=False)
@@ -51,7 +58,6 @@ def is_owner(user_id):
 
 # ===== 4. HANDLERS =====
 
-# Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user: return
     user_id = update.effective_user.id
@@ -67,7 +73,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(f"RJ Bot active hai bhai! 😎\nMode: {BOT_PERSONALITY.capitalize()}\nWeb Search: ON")
 
-# Mood Command
 async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global BOT_PERSONALITY
     if not is_owner(update.effective_user.id): return
@@ -79,8 +84,7 @@ async def set_mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BOT_PERSONALITY = mood
         await update.message.reply_text(f"✅ Mood set to {mood}")
 
-# Web Search Command (Force Search)
-async def web_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def web_search_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Bhai, kya search karna hai? Topic toh likho!")
         return
@@ -110,7 +114,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     text = update.message.text
 
-    # 1. Anti-Bot Logic
     if user_id in PENDING_VERIFICATION:
         try:
             if int(text) == PENDING_VERIFICATION[user_id]:
@@ -123,14 +126,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         except: return
 
-    # 2. Cooldown
     now = time.time()
     if user_id in USER_COOLDOWN and now - USER_COOLDOWN[user_id] < COOLDOWN_TIME:
         await update.message.reply_text("Ruk ja bhai! ☕")
         return
     USER_COOLDOWN[user_id] = now
 
-    # 3. Smart Search Decision
     search_keywords = ["today", "aaj", "news", "price", "weather", "latest", "kab", "who is", "kya hai"]
     use_web = any(word in text.lower() for word in search_keywords)
     
@@ -144,11 +145,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 web_context = "\n".join([f"Info: {r['body']}" for r in res])
         except: pass
 
-    # 4. Groq AI Logic
     try:
         client = Groq(api_key=GROQ_API_KEY)
         system_prompt = "Tu RJ ka dost hai, dilli ka savage chhora. Use Hinglish + Slang." if BOT_PERSONALITY == "savage" else "Tu ek pro consultant hai."
-        
         if web_context:
             system_prompt += f" Internet se ye pata chala hai: {web_context}. Iska use karke reply de."
 
@@ -166,19 +165,39 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(response_text)
     except Exception as e:
+        logging.error(f"Groq Error: {e}")
         await update.message.reply_text("Bhai technical issue hai, thodi der baad aaiyo! ☕")
 
 # ===== 6. RUN BOT =====
-if __name__ == "__main__":
+async def main():
+    # Build application
     app = Application.builder().token(BOT_TOKEN).build()
     
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(load_data_from_telegram(app))
+    # Load data from database channel
+    await load_data_from_telegram(app)
 
+    # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("mood", set_mood))
-    app.add_handler(CommandHandler("search", web_search))
+    app.add_handler(CommandHandler("search", web_search_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("🚀 RJ BOT PRO: Data Recovery + Smart AI LIVE!")
-    app.run_polling()
+    # Conflict Error Fix: Pehle webhook delete karenge taaki polling saaf chale
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    
+    print("🚀 RJ BOT PRO: Fixed & Live!")
+    
+    # Start polling properly
+    async with app:
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling(drop_pending_updates=True)
+        # Keep running
+        while True:
+            await asyncio.sleep(1)
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
