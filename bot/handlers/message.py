@@ -136,4 +136,4 @@ else:
 
         USER_DATA[str(user_id)]["count"] += 1
 
-    await update.message.reply_text(response,'reply_markup= ReplyKeyboardMarkup([KeyboardButton("Share your context ")])')
+    await update.message.reply_text(response)
