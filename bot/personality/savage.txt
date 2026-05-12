@@ -1,4 +1,6 @@
-    #personality
+    # personality
+
+    web_context = ""
 
     if BOT_PERSONALITY == "savage":
 
