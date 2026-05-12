@@ -5,6 +5,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot.ai.responder import generate_response
+from bot.ai.classifier import needs_web_search
 
 from bot.memory.user_memory import (
     USER_DATA,
@@ -29,6 +30,15 @@ async def handle_message(
     user_name = update.effective_user.first_name
 
     text = update.message.text
+
+    # AI search detection
+
+    search_needed = await asyncio.to_thread(
+        needs_web_search,
+        text
+    )
+
+    print("SEARCH NEEDED:", search_needed)
 
     # verification
 
