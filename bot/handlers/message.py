@@ -1,3 +1,16 @@
+USER_COOLDOWN[user_id] = now
+
+# search detection
+
+search_needed = await asyncio.to_thread(
+    needs_web_search,
+    text
+)
+
+print("SEARCH NEEDED:", search_needed)
+
+web_context = ""
+
 # personality
 
 if BOT_PERSONALITY == "savage":
