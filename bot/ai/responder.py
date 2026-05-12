@@ -25,8 +25,8 @@ def generate_response(
                 "content": user_message
             }
         ],
-        temperature=0.7,
-        max_tokens=500
+        temperature=0.4,
+        max_tokens=300
     )
 
     return completion.choices[0].message.content
