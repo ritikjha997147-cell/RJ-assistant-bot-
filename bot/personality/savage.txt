@@ -1,4 +1,4 @@
-    # personality
+    #personality
 
     if BOT_PERSONALITY == "savage":
 
