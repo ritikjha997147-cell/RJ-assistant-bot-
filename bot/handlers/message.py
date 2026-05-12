@@ -2,8 +2,8 @@ import asyncio
 import time
 
 from telegram import Update
-from telegram.ext import ContextTypes,
-ReplyKeyboardMarkup,KeyboardButton
+from telegram.ext import ContextTypes
+from telegram import ReplyKeyboardMarkup, KeyboardButton
 
 from bot.ai.responder import generate_response
 from bot.ai.classifier import needs_web_search
