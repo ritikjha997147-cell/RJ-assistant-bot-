@@ -3,7 +3,6 @@ import time
 
 from telegram import Update
 from telegram.ext import ContextTypes
-from telegram import ReplyKeyboardMarkup, KeyboardButton
 
 from bot.ai.responder import generate_response
 from bot.ai.classifier import needs_web_search
@@ -15,9 +14,7 @@ from bot.memory.user_memory import (
 )
 
 from bot.memory.db_channel import save_user_data
-
 from bot.handlers.shared import BOT_PERSONALITY
-
 from bot.config import COOLDOWN_TIME
 
 
@@ -27,19 +24,8 @@ async def handle_message(
 ):
 
     user_id = update.effective_user.id
-
     user_name = update.effective_user.first_name
-
     text = update.message.text
-
-    # AI search detection
-
-    search_needed = await asyncio.to_thread(
-        needs_web_search,
-        text
-    )
-
-    print("SEARCH NEEDED:", search_needed)
 
     # verification
 
@@ -91,36 +77,29 @@ async def handle_message(
 
     USER_COOLDOWN[user_id] = now
 
+    # search detection
+
+    search_needed = await asyncio.to_thread(
+        needs_web_search,
+        text
+    )
+
+    print("SEARCH NEEDED:", search_needed)
+
     # personality
 
-   if BOT_PERSONALITY == "savage":
+    if BOT_PERSONALITY == "savage":
 
-    system_prompt = (
-        "You are RJ BOT PRO.\n"
-        "Speak in Hinglish like Delhi savage.\n\n"
+        system_prompt = (
+            "You are RJ BOT PRO. "
+            "Speak in Hinglish like Delhi savage."
+        )
 
-        "IMPORTANT RULES:\n"
-        "- Use ONLY provided WEB FACTS for news/current info.\n"
-        "- Never invent facts.\n"
-        "- If information is unclear say you are not sure.\n"
-        "- Keep answers short and clean.\n\n"
+    else:
 
-        f"WEB FACTS:\n{web_context}"
-    )
-
-else:
-
-    system_prompt = (
-        "You are a professional consultant.\n\n"
-
-        "IMPORTANT RULES:\n"
-        "- Use ONLY provided WEB FACTS for current events.\n"
-        "- Never invent information.\n"
-        "- If data is missing say you are unsure.\n"
-        "- Keep responses concise.\n\n"
-
-        f"WEB FACTS:\n{web_context}"
-    )
+        system_prompt = (
+            "You are a professional consultant."
+        )
 
     # ai response
 
