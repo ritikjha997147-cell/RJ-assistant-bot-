@@ -26,7 +26,22 @@ async def handle_message(
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
     text = update.message.text
+    # user history setup
 
+    if user_id not in USER_HISTORY:
+
+        USER_HISTORY[user_id] = []
+
+    USER_HISTORY[user_id].append(
+        {
+            "role": "user",
+            "content": text
+        }
+    )
+
+    # keep only last 5 messages
+
+    USER_HISTORY[user_id] = USER_HISTORY[user_id][-5:]
     # verification
 
     if user_id in PENDING_VERIFICATION:
