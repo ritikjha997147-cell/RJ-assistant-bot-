@@ -10,9 +10,9 @@ from bot.ai.classifier import needs_web_search
 from bot.memory.user_memory import (
     USER_DATA,
     USER_COOLDOWN,
-    PENDING_VERIFICATION
+    PENDING_VERIFICATION,
+    USER_HISTORY
 )
-
 from bot.memory.db_channel import save_user_data
 from bot.handlers.shared import BOT_PERSONALITY
 from bot.config import COOLDOWN_TIME
