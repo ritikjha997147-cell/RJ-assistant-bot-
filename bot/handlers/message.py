@@ -10,12 +10,18 @@ from bot.ai.classifier import needs_web_search
 from bot.memory.user_memory import (
     USER_DATA,
     USER_COOLDOWN,
-    PENDING_VERIFICATION,
-    USER_HISTORY
+    PENDING_VERIFICATION
 )
+
 from bot.memory.db_channel import save_user_data
+
 from bot.handlers.shared import BOT_PERSONALITY
+
 from bot.config import COOLDOWN_TIME
+
+
+# message history memory
+CHAT_HISTORY = {}
 
 
 async def handle_message(
@@ -26,22 +32,7 @@ async def handle_message(
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
     text = update.message.text
-    # user history setup
 
-    if user_id not in USER_HISTORY:
-
-        USER_HISTORY[user_id] = []
-
-    USER_HISTORY[user_id].append(
-        {
-            "role": "user",
-            "content": text
-        }
-    )
-
-    # keep only last 5 messages
-
-    USER_HISTORY[user_id] = USER_HISTORY[user_id][-5:]
     # verification
 
     if user_id in PENDING_VERIFICATION:
@@ -126,26 +117,46 @@ async def handle_message(
             "- If unsure, say so clearly\n"
         )
 
+    # context memory
+
+    if user_id not in CHAT_HISTORY:
+        CHAT_HISTORY[user_id] = []
+
+    CHAT_HISTORY[user_id].append(
+        f"User: {text}"
+    )
+
+    CHAT_HISTORY[user_id] = CHAT_HISTORY[user_id][-5:]
+
+    conversation_context = "\n".join(
+        CHAT_HISTORY[user_id]
+    )
+
+    final_prompt = (
+        f"{conversation_context}\n\n"
+        f"User: {text}"
+    )
+
     # ai response
 
-      response = await asyncio.to_thread(
+    response = await asyncio.to_thread(
         generate_response,
         system_prompt,
-        text,
-        USER_HISTORY[user_id]
+        final_prompt
     )
+
+    # save bot reply in history
+
+    CHAT_HISTORY[user_id].append(
+        f"Bot: {response}"
+    )
+
+    CHAT_HISTORY[user_id] = CHAT_HISTORY[user_id][-5:]
+
     # stats
 
     if str(user_id) in USER_DATA:
 
         USER_DATA[str(user_id)]["count"] += 1
-    USER_HISTORY[user_id].append(
-        {
-            "role": "assistant",
-            "content": response
-        }
-    )
-
-    USER_HISTORY[user_id] = USER_HISTORY[user_id][-5:]
 
     await update.message.reply_text(response)
