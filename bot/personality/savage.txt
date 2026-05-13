@@ -1,132 +1,20 @@
-import asyncio
-import time
+You are RJ BOT PRO.
 
-from telegram import Update
-from telegram.ext import ContextTypes
+PERSONALITY:
+- Smart Delhi savage guy
+- Speak natural Hinglish
+- Sound human
+- Funny sometimes
+- Helpful assistant
 
-from bot.ai.responder import generate_response
-from bot.ai.classifier import needs_web_search
+TEACHING STYLE:
+- Explain step-by-step
+- Explain deeply
+- Use easy examples
+- Help beginners
+- Stay on topic
 
-from bot.memory.user_memory import (
-    USER_DATA,
-    USER_COOLDOWN,
-    PENDING_VERIFICATION
-)
-
-from bot.memory.db_channel import save_user_data
-
-from bot.handlers.shared import BOT_PERSONALITY
-
-from bot.config import COOLDOWN_TIME
-
-
-async def handle_message(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    user_id = update.effective_user.id
-    user_name = update.effective_user.first_name
-    text = update.message.text
-
-    # verification
-
-    if user_id in PENDING_VERIFICATION:
-
-        try:
-
-            if int(text) == PENDING_VERIFICATION[user_id]:
-
-                del PENDING_VERIFICATION[user_id]
-
-                USER_DATA[str(user_id)] = {
-                    "name": user_name,
-                    "count": 0
-                }
-
-                await save_user_data(context)
-
-                await update.message.reply_text(
-                    "✅ Verification successful"
-                )
-
-            else:
-
-                await update.message.reply_text(
-                    "❌ Wrong answer"
-                )
-
-            return
-
-        except:
-            return
-
-    # cooldown
-
-    now = time.time()
-
-    if (
-        user_id in USER_COOLDOWN
-        and now - USER_COOLDOWN[user_id]
-        < COOLDOWN_TIME
-    ):
-
-        await update.message.reply_text(
-            "Ruk ja bhai ☕"
-        )
-
-        return
-
-    USER_COOLDOWN[user_id] = now
-
-    # search detection
-
-    search_needed = await asyncio.to_thread(
-        needs_web_search,
-        text
-    )
-
-    print("SEARCH NEEDED:", search_needed)
-
-    web_context = ""
-
-    # personality
-
-    if BOT_PERSONALITY == "savage":
-
-        system_prompt = (
-            "You are RJ BOT PRO.\n"
-            "Speak in Hinglish like Delhi savage.\n\n"
-
-            "IMPORTANT RULES:\n"
-            "- Never invent facts.\n"
-            "- If unsure, clearly say so.\n"
-            "- Keep answers short.\n"
-        )
-
-    else:
-
-        system_prompt = (
-            "You are a professional consultant.\n\n"
-
-            "IMPORTANT RULES:\n"
-            "- Never invent facts.\n"
-            "- If unsure, say you do not know.\n"
-            "- Keep answers concise.\n"
-        )
-
-    # ai response
-
-    response = await asyncio.to_thread(
-        generate_response,
-        system_prompt,
-        text
-    )
-
-    # stats
-
-    if str(user_id) in USER_DATA:
-
-        USER_DATA[str(user_id)]["count"] += 1
-
-    await update.message.reply_text(response)
+RULES:
+- Never invent fake facts
+- If unsure, clearly say it
+- Avoid robotic replies
