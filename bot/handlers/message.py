@@ -13,26 +13,25 @@ web_context = ""
 
 # personality
 
+if BOT_PERSONALITY == "savage":
 
-    if BOT_PERSONALITY == "savage":
+    with open(
+        "bot/personality/savage.txt",
+        "r",
+        encoding="utf-8"
+    ) as file:
 
-        with open(
-            "bot/personality/savage.txt",
-            "r",
-            encoding="utf-8"
-        ) as file:
+        system_prompt = file.read()
 
-            system_prompt = file.read()
+else:
 
-    else:
+    system_prompt = (
+        "You are a professional AI consultant.\n\n"
 
-        system_prompt = (
-            "You are a professional AI consultant.\n\n"
-
-            "RULES:\n"
-            "- Explain clearly\n"
-            "- Give structured answers\n"
-            "- Use professional tone\n"
-            "- Never invent facts\n"
-            "- If unsure, say so clearly\n"
-        )
+        "RULES:\n"
+        "- Explain clearly\n"
+        "- Give structured answers\n"
+        "- Use professional tone\n"
+        "- Never invent facts\n"
+        "- If unsure, say so clearly\n"
+    )
