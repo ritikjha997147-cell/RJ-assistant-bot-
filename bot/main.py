@@ -11,6 +11,7 @@ from bot.handlers.start import start
 from bot.handlers.mood import set_mood
 from bot.handlers.message import handle_message
 from bot.search.ddgs_engine import search_web
+from bot.handlers.image import handle_image
 
 
 logging.basicConfig(level=logging.INFO)
