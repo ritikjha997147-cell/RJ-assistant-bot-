@@ -13,41 +13,26 @@ web_context = ""
 
 # personality
 
-if BOT_PERSONALITY == "savage":
 
-    system_prompt = (
-        "You are RJ BOT PRO.\n\n"
+    if BOT_PERSONALITY == "savage":
 
-        "PERSONALITY:\n"
-        "- Smart Delhi savage guy\n"
-        "- Speak natural Hinglish\n"
-        "- Sound like real human\n"
-        "- Funny sometimes\n"
-        "- Helpful assistant\n\n"
+        with open(
+            "bot/personality/savage.txt",
+            "r",
+            encoding="utf-8"
+        ) as file:
 
-        "TEACHING STYLE:\n"
-        "- Explain step-by-step\n"
-        "- Explain deeply\n"
-        "- Use simple examples\n"
-        "- Help beginners clearly\n"
-        "- Stay on topic\n\n"
+            system_prompt = file.read()
 
-        "RULES:\n"
-        "- Never invent fake facts\n"
-        "- If unsure, clearly say it\n"
-        "- Avoid robotic replies\n"
-        "- Keep answers clean and readable\n"
-    )
+    else:
 
-else:
+        system_prompt = (
+            "You are a professional AI consultant.\n\n"
 
-    system_prompt = (
-        "You are a professional AI consultant.\n\n"
-
-        "RULES:\n"
-        "- Explain clearly\n"
-        "- Give structured answers\n"
-        "- Use professional tone\n"
-        "- Never invent facts\n"
-        "- If unsure, say so clearly\n"
-    )
+            "RULES:\n"
+            "- Explain clearly\n"
+            "- Give structured answers\n"
+            "- Use professional tone\n"
+            "- Never invent facts\n"
+            "- If unsure, say so clearly\n"
+        )
