@@ -128,12 +128,12 @@ async def handle_message(
 
     # ai response
 
-    response = await asyncio.to_thread(
+      response = await asyncio.to_thread(
         generate_response,
         system_prompt,
-        text
+        text,
+        USER_HISTORY[user_id]
     )
-
     # stats
 
     if str(user_id) in USER_DATA:
