@@ -83,6 +83,12 @@ def main():
             show_last_image
         )
     )
+    app.add_handler(
+    CommandHandler(
+        "remind",
+        reminder_command
+    )
+)
     # image handler
 
     app.add_handler(
