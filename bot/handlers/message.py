@@ -139,5 +139,13 @@ async def handle_message(
     if str(user_id) in USER_DATA:
 
         USER_DATA[str(user_id)]["count"] += 1
+    USER_HISTORY[user_id].append(
+        {
+            "role": "assistant",
+            "content": response
+        }
+    )
+
+    USER_HISTORY[user_id] = USER_HISTORY[user_id][-5:]
 
     await update.message.reply_text(response)
