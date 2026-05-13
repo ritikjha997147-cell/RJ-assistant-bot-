@@ -62,6 +62,8 @@ def main():
 
     # commands
 
+        # commands
+
     app.add_handler(
         CommandHandler("start", start)
     )
@@ -74,6 +76,12 @@ def main():
         CommandHandler("search", search_command)
     )
 
+    app.add_handler(
+        CommandHandler(
+            "showlast",
+            show_last_image
+        )
+    )
     # image handler
 
     app.add_handler(
