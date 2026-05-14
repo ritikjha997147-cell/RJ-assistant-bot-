@@ -1,17 +1,9 @@
+import time
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from datetime import datetime, timedelta
-
-from bot.reminders.scheduler import scheduler
-
-
-async def send_reminder(bot, chat_id, text):
-
-    await bot.send_message(
-        chat_id=chat_id,
-        text=f"⏰ Reminder:\n{text}"
-    )
+from bot.reminders.db import conn, cursor
 
 
 async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -24,25 +16,25 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    time_value = int(context.args[0])
+    value = int(context.args[0])
 
-    time_unit = context.args[1]
+    unit = context.args[1]
 
     message = " ".join(context.args[2:])
 
     seconds = 0
 
-    if time_unit == "sec":
+    if unit == "sec":
 
-        seconds = time_value
+        seconds = value
 
-    elif time_unit == "min":
+    elif unit == "min":
 
-        seconds = time_value * 60
+        seconds = value * 60
 
-    elif time_unit == "hr":
+    elif unit == "hr":
 
-        seconds = time_value * 3600
+        seconds = value * 3600
 
     else:
 
@@ -52,15 +44,19 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    chat_id = update.effective_chat.id
+    remind_time = time.time() + seconds
 
-    scheduler.add_job(
-        send_reminder,
-        "date",
-        run_date=datetime.now() + timedelta(seconds=seconds),
-        args=[context.bot, chat_id, message]
+    cursor.execute(
+        "INSERT INTO reminders (chat_id, message, remind_time) VALUES (?, ?, ?)",
+        (
+            update.effective_chat.id,
+            message,
+            remind_time
+        )
     )
 
+    conn.commit()
+
     await update.message.reply_text(
-        f"✅ Reminder set.\n{time_value} {time_unit} baad yaad dilaunga."
+        f"✅ Reminder set for {value} {unit}"
     )
