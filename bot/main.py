@@ -1,4 +1,5 @@
 import logging
+import asyncio
 
 from telegram.ext import (
     Application,
@@ -16,7 +17,7 @@ from bot.handlers.image import handle_image
 from bot.handlers.showlast import show_last_image
 from bot.handlers.reminder import remind
 
-from bot.reminders.scheduler import scheduler
+from bot.reminders.checker import reminder_checker
 
 from bot.search.ddgs_engine import search_web
 
@@ -59,11 +60,21 @@ async def search_command(update, context):
     await update.message.reply_text(response)
 
 
+async def post_init(app):
+
+    asyncio.create_task(
+        reminder_checker(app)
+    )
+
+
 def main():
 
-    app = Application.builder().token(BOT_TOKEN).build()
-
-    scheduler.start()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
     # commands
 
