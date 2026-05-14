@@ -1,3 +1,19 @@
+from datetime import datetime, timedelta
+
+from telegram import Update
+from telegram.ext import ContextTypes
+
+from bot.reminders.scheduler import scheduler
+
+
+async def send_reminder(chat_id, text, context):
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"⏰ Reminder:\n{text}"
+    )
+
+
 async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if len(context.args) < 3:
