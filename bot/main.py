@@ -16,12 +16,12 @@ from bot.handlers.message import handle_message
 from bot.handlers.image import handle_image
 from bot.handlers.showlast import show_last_image
 from bot.handlers.reminder import remind
+
 from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
 
-from bot.reminders.message_scheduler import message_scheduler
-
 from bot.reminders.checker import reminder_checker
+from bot.reminders.message_scheduler import message_scheduler
 
 from bot.search.ddgs_engine import search_web
 
@@ -66,8 +66,14 @@ async def search_command(update, context):
 
 async def post_init(app):
 
+    # reminder checker start
     asyncio.create_task(
         reminder_checker(app)
+    )
+
+    # scheduled messages checker start
+    asyncio.create_task(
+        message_scheduler(app)
     )
 
 
@@ -105,6 +111,20 @@ def main():
         CommandHandler(
             "remind",
             remind
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "connect",
+            connect
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "sendlater",
+            sendlater
         )
     )
 
