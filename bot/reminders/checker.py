@@ -1,7 +1,7 @@
 import asyncio
 import time
 
-from bot.reminders.reminder_db import (
+from bot.database.reminder_db import (
     get_due_reminders,
     delete_reminder
 )
