@@ -1,60 +1,64 @@
-import asyncio
+async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-from telegram import Update
-from telegram.ext import ContextTypes
-
-
-async def remind_later(
-    context,
-    chat_id,
-    seconds,
-    message
-):
-
-    await asyncio.sleep(seconds)
-
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=f"⏰ Reminder:\n{message}"
-    )
-
-
-async def reminder_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if len(context.args) < 2:
+    if len(context.args) < 3:
 
         await update.message.reply_text(
-            "Use:\n/remind 60 Homework kar"
+            "Usage:\n/remind 10 min homework"
         )
 
         return
 
     try:
 
-        seconds = int(context.args[0])
+        amount = int(context.args[0])
 
     except:
 
         await update.message.reply_text(
-            "Time number me do."
+            "Invalid time."
         )
 
         return
 
-    reminder_text = " ".join(context.args[1:])
+    unit = context.args[1].lower()
 
-    asyncio.create_task(
-        remind_later(
-            context,
-            update.effective_chat.id,
-            seconds,
-            reminder_text
+    if unit in ["min", "minute", "minutes"]:
+
+        delay = amount * 60
+
+    elif unit in ["sec", "second", "seconds"]:
+
+        delay = amount
+
+    elif unit in ["hour", "hours"]:
+
+        delay = amount * 3600
+
+    else:
+
+        await update.message.reply_text(
+            "Use sec/min/hour"
         )
+
+        return
+
+    reminder_text = " ".join(context.args[2:])
+
+    run_time = datetime.now() + timedelta(
+        seconds=delay
+    )
+
+    scheduler.add_job(
+        send_reminder,
+        "date",
+        run_date=run_time,
+        args=[
+            update.effective_chat.id,
+            reminder_text,
+            context
+        ]
     )
 
     await update.message.reply_text(
-        f"✅ Reminder set.\n{seconds} sec baad yaad dilaunga."
+        f"✅ Reminder set for {amount} {unit}."
     )
