@@ -1,62 +1,63 @@
 import time
+import dateparser
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.reminders.db import conn, cursor
+from bot.reminders.reminder_db import add_reminder
 
 
-async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def remind(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-    if len(context.args) < 3:
+    if not context.args:
 
         await update.message.reply_text(
-            "Use:\n/remind 1 min drink water"
+            "Usage:\n/remind tomorrow 7pm study"
         )
 
         return
 
-    value = int(context.args[0])
+    full_text = " ".join(context.args)
 
-    unit = context.args[1]
+    parts = full_text.split(" ")
 
-    message = " ".join(context.args[2:])
-
-    seconds = 0
-
-    if unit == "sec":
-
-        seconds = value
-
-    elif unit == "min":
-
-        seconds = value * 60
-
-    elif unit == "hr":
-
-        seconds = value * 3600
-
-    else:
+    if len(parts) < 2:
 
         await update.message.reply_text(
-            "Use sec / min / hr"
+            "Reminder format galat hai."
         )
 
         return
 
-    remind_time = time.time() + seconds
+    # last word = message
+    message = parts[-1]
 
-    cursor.execute(
-        "INSERT INTO reminders (chat_id, message, remind_time) VALUES (?, ?, ?)",
-        (
-            update.effective_chat.id,
-            message,
-            remind_time
-        )
+    # baaki sab = time text
+    time_text = " ".join(parts[:-1])
+
+    parsed_time = dateparser.parse(
+        time_text
     )
 
-    conn.commit()
+    if not parsed_time:
+
+        await update.message.reply_text(
+            "Time samajh nahi aya."
+        )
+
+        return
+
+    remind_at = parsed_time.timestamp()
+
+    add_reminder(
+        update.effective_chat.id,
+        message,
+        remind_at
+    )
 
     await update.message.reply_text(
-        f"✅ Reminder set for {value} {unit}"
+        f"✅ Reminder set for:\n{parsed_time}"
     )
