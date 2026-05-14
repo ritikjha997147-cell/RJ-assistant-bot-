@@ -1,7 +1,10 @@
-import time
 import asyncio
+import time
 
-from bot.reminders.db import conn, cursor
+from bot.reminders.reminder_db import (
+    get_due_reminders,
+    delete_reminder
+)
 
 
 async def reminder_checker(app):
@@ -10,12 +13,9 @@ async def reminder_checker(app):
 
         current_time = time.time()
 
-        cursor.execute(
-            "SELECT * FROM reminders WHERE remind_time <= ?",
-            (current_time,)
+        reminders = get_due_reminders(
+            current_time
         )
-
-        reminders = cursor.fetchall()
 
         for reminder in reminders:
 
@@ -23,22 +23,11 @@ async def reminder_checker(app):
             chat_id = reminder[1]
             message = reminder[2]
 
-            try:
-
-                await app.bot.send_message(
-                    chat_id=chat_id,
-                    text=f"⏰ Reminder:\n{message}"
-                )
-
-            except Exception as e:
-
-                print(e)
-
-            cursor.execute(
-                "DELETE FROM reminders WHERE id=?",
-                (reminder_id,)
+            await app.bot.send_message(
+                chat_id=chat_id,
+                text=f"⏰ Reminder:\n{message}"
             )
 
-            conn.commit()
+            delete_reminder(reminder_id)
 
         await asyncio.sleep(5)
