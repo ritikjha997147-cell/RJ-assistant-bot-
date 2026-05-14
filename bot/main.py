@@ -14,7 +14,7 @@ from bot.handlers.mood import set_mood
 from bot.handlers.message import handle_message
 from bot.handlers.image import handle_image
 from bot.handlers.showlast import show_last_image
-from bot.handlers.reminder import reminder_command
+from bot.handlers.reminder import remind
 
 from bot.search.ddgs_engine import search_web
 
