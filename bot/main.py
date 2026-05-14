@@ -15,6 +15,7 @@ from bot.handlers.message import handle_message
 from bot.handlers.image import handle_image
 from bot.handlers.showlast import show_last_image
 from bot.handlers.reminder import remind
+from bot.reminders.scheduler import scheduler
 
 from bot.search.ddgs_engine import search_web
 
@@ -61,6 +62,9 @@ def main():
 
     app = Application.builder().token(BOT_TOKEN).build()
 
+    scheduler.start()
+
+    app.add_handler(...)
     
 
         # commands
