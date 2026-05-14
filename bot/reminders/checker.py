@@ -1,3 +1,4 @@
+```python
 import asyncio
 import time
 
@@ -31,3 +32,4 @@ async def reminder_checker(app):
             delete_reminder(reminder_id)
 
         await asyncio.sleep(5)
+```
