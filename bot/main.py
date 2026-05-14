@@ -16,7 +16,6 @@ from bot.handlers.message import handle_message
 from bot.handlers.image import handle_image
 from bot.handlers.showlast import show_last_image
 from bot.handlers.reminder import remind
-from bot.reminders.checker import reminder_checker
 
 from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
@@ -65,14 +64,15 @@ async def search_command(update, context):
     await update.message.reply_text(response)
 
 
+# background systems start here
 async def post_init(app):
 
-    # reminder checker start
+    # reminder checker
     asyncio.create_task(
         reminder_checker(app)
     )
 
-    # scheduled messages checker start
+    # scheduled messages checker
     asyncio.create_task(
         message_scheduler(app)
     )
