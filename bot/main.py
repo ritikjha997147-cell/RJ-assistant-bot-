@@ -16,6 +16,10 @@ from bot.handlers.message import handle_message
 from bot.handlers.image import handle_image
 from bot.handlers.showlast import show_last_image
 from bot.handlers.reminder import remind
+from bot.handlers.connect import connect
+from bot.handlers.sendlater import sendlater
+
+from bot.reminders.message_scheduler import message_scheduler
 
 from bot.reminders.checker import reminder_checker
 
