@@ -1,5 +1,4 @@
 import time
-import dateparser
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -12,52 +11,64 @@ async def remind(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not context.args:
+    if len(context.args) < 3:
 
         await update.message.reply_text(
-            "Usage:\n/remind tomorrow 7pm study"
+            "Use:\n/remind 10 min Homework"
         )
 
         return
 
-    full_text = " ".join(context.args)
+    try:
 
-    parts = full_text.split(" ")
+        amount = int(context.args[0])
 
-    if len(parts) < 2:
+        unit = context.args[1].lower()
 
-        await update.message.reply_text(
-            "Reminder format galat hai."
+        message = " ".join(context.args[2:])
+
+        # TIME CONVERSION
+
+        if unit in ["sec", "second", "seconds"]:
+
+            seconds = amount
+
+        elif unit in ["min", "minute", "minutes"]:
+
+            seconds = amount * 60
+
+        elif unit in ["hr", "hour", "hours"]:
+
+            seconds = amount * 3600
+
+        elif unit in ["day", "days"]:
+
+            seconds = amount * 86400
+
+        else:
+
+            await update.message.reply_text(
+                "❌ Time unit galat hai.\nUse: sec / min / hr / day"
+            )
+
+            return
+
+        remind_time = time.time() + seconds
+
+        add_reminder(
+            update.effective_chat.id,
+            message,
+            remind_time
         )
 
-        return
-
-    # last word = message
-    message = parts[-1]
-
-    # baaki sab = time text
-    time_text = " ".join(parts[:-1])
-
-    parsed_time = dateparser.parse(
-        time_text
-    )
-
-    if not parsed_time:
-
         await update.message.reply_text(
-            "Time samajh nahi aya."
+            f"✅ Reminder set:\n{amount} {unit}\n📝 {message}"
         )
 
-        return
+    except Exception as e:
 
-    remind_at = parsed_time.timestamp()
+        print(e)
 
-    add_reminder(
-        update.effective_chat.id,
-        message,
-        remind_at
-    )
-
-    await update.message.reply_text(
-        f"✅ Reminder set for:\n{parsed_time}"
-    )
+        await update.message.reply_text(
+            "❌ Time samajh nahi aya."
+        )
