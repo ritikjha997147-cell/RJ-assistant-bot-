@@ -7,6 +7,10 @@ from telegram.ext import ContextTypes
 from bot.ai.responder import generate_response
 from bot.ai.classifier import needs_web_search
 
+from bot.memory.cloud_memory import (
+    save_cloud_memory
+)
+
 from bot.memory.user_memory import (
     USER_DATA,
     USER_COOLDOWN,
@@ -144,7 +148,19 @@ async def handle_message(
         system_prompt,
         final_prompt
     )
+await save_cloud_memory(
+    context,
+    user_id,
+    "USER",
+    text
+)
 
+await save_cloud_memory(
+    context,
+    user_id,
+    "BOT",
+    response
+)
     # save bot reply in history
 
     CHAT_HISTORY[user_id].append(
