@@ -4,7 +4,7 @@ import dateparser
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.reminders.reminder_db import add_reminder
+from bot.database.reminder_db import add_reminder
 
 
 async def remind(
