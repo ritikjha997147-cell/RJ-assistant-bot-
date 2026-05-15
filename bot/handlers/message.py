@@ -7,10 +7,6 @@ from telegram.ext import ContextTypes
 from bot.ai.responder import generate_response
 from bot.ai.classifier import needs_web_search
 
-from bot.memory.cloud_memory import (
-    save_cloud_memory
-)
-
 from bot.memory.user_memory import (
     USER_DATA,
     USER_COOLDOWN,
@@ -24,7 +20,7 @@ from bot.handlers.shared import BOT_PERSONALITY
 from bot.config import COOLDOWN_TIME
 
 
-# message history memory
+# CHAT MEMORY
 CHAT_HISTORY = {}
 
 
@@ -37,7 +33,7 @@ async def handle_message(
     user_name = update.effective_user.first_name
     text = update.message.text
 
-    # verification
+    # VERIFICATION SYSTEM
 
     if user_id in PENDING_VERIFICATION:
 
@@ -67,9 +63,10 @@ async def handle_message(
             return
 
         except:
+
             return
 
-    # cooldown
+    # COOLDOWN
 
     now = time.time()
 
@@ -87,7 +84,7 @@ async def handle_message(
 
     USER_COOLDOWN[user_id] = now
 
-    # search detection
+    # SEARCH CHECK
 
     search_needed = await asyncio.to_thread(
         needs_web_search,
@@ -96,7 +93,7 @@ async def handle_message(
 
     print("SEARCH NEEDED:", search_needed)
 
-    # personality
+    # PERSONALITY
 
     if BOT_PERSONALITY == "savage":
 
@@ -121,16 +118,17 @@ async def handle_message(
             "- If unsure, say so clearly\n"
         )
 
-    # context memory
+    # MEMORY
 
     if user_id not in CHAT_HISTORY:
+
         CHAT_HISTORY[user_id] = []
 
     CHAT_HISTORY[user_id].append(
         f"User: {text}"
     )
 
-    CHAT_HISTORY[user_id] = CHAT_HISTORY[user_id][-5:]
+    CHAT_HISTORY[user_id] = CHAT_HISTORY[user_id][-10:]
 
     conversation_context = "\n".join(
         CHAT_HISTORY[user_id]
@@ -141,38 +139,28 @@ async def handle_message(
         f"User: {text}"
     )
 
-    # ai response
+    # AI RESPONSE
 
     response = await asyncio.to_thread(
         generate_response,
         system_prompt,
         final_prompt
     )
-await save_cloud_memory(
-    context,
-    user_id,
-    "USER",
-    text
-)
 
-await save_cloud_memory(
-    context,
-    user_id,
-    "BOT",
-    response
-)
-    # save bot reply in history
+    # SAVE BOT REPLY
 
     CHAT_HISTORY[user_id].append(
         f"Bot: {response}"
     )
 
-    CHAT_HISTORY[user_id] = CHAT_HISTORY[user_id][-5:]
+    CHAT_HISTORY[user_id] = CHAT_HISTORY[user_id][-10:]
 
-    # stats
+    # USER STATS
 
     if str(user_id) in USER_DATA:
 
         USER_DATA[str(user_id)]["count"] += 1
+
+    # SEND REPLY
 
     await update.message.reply_text(response)
