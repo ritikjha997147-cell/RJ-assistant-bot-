@@ -19,9 +19,10 @@ from bot.handlers.shared import BOT_PERSONALITY
 
 from bot.config import COOLDOWN_TIME
 
-
-# CHAT MEMORY
-CHAT_HISTORY = {}
+from bot.database.chat_memory import (
+    save_message,
+    get_last_messages
+)
 
 
 async def handle_message(
@@ -32,6 +33,14 @@ async def handle_message(
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
     text = update.message.text
+
+    # SAVE USER MESSAGE
+
+    save_message(
+        user_id,
+        "user",
+        text
+    )
 
     # VERIFICATION SYSTEM
 
@@ -118,26 +127,22 @@ async def handle_message(
             "- If unsure, say so clearly\n"
         )
 
-    # MEMORY
+    # LOAD MEMORY FROM DATABASE
 
-    if user_id not in CHAT_HISTORY:
-
-        CHAT_HISTORY[user_id] = []
-
-    CHAT_HISTORY[user_id].append(
-        f"User: {text}"
+    memory = get_last_messages(
+        user_id,
+        limit=10
     )
 
-    CHAT_HISTORY[user_id] = CHAT_HISTORY[user_id][-10:]
+    conversation_context = ""
 
-    conversation_context = "\n".join(
-        CHAT_HISTORY[user_id]
-    )
+    for role, msg in memory:
 
-    final_prompt = (
-        f"{conversation_context}\n\n"
-        f"User: {text}"
-    )
+        conversation_context += (
+            f"{role}: {msg}\n"
+        )
+
+    final_prompt = conversation_context
 
     # AI RESPONSE
 
@@ -149,11 +154,11 @@ async def handle_message(
 
     # SAVE BOT REPLY
 
-    CHAT_HISTORY[user_id].append(
-        f"Bot: {response}"
+    save_message(
+        user_id,
+        "assistant",
+        response
     )
-
-    CHAT_HISTORY[user_id] = CHAT_HISTORY[user_id][-10:]
 
     # USER STATS
 
