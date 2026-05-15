@@ -3,8 +3,8 @@ import asyncio
 import time
 
 from bot.database.reminder_db import (
-    get_due_reminders,
-    delete_reminder
+get_due_reminders,
+delete_reminder
 )
 
 
