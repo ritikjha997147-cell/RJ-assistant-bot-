@@ -1,10 +1,12 @@
 import logging
 import asyncio
 
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    ContextTypes,
     filters
 )
 
@@ -30,9 +32,26 @@ from bot.utils.fallback import fallback_reply
 logging.basicConfig(level=logging.INFO)
 
 
-# SAFE FALLBACK SYSTEM
+# =========================
+# ERROR HANDLER
+# =========================
 
-async def safe_handle_message(update, context):
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    print(f"[GLOBAL ERROR]: {context.error}")
+
+
+# =========================
+# SAFE MESSAGE HANDLER
+# =========================
+
+async def safe_handle_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     try:
 
@@ -48,9 +67,14 @@ async def safe_handle_message(update, context):
         await fallback_reply(update)
 
 
+# =========================
 # SEARCH COMMAND
+# =========================
 
-async def search_command(update, context):
+async def search_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     if not context.args:
 
@@ -85,7 +109,9 @@ async def search_command(update, context):
     await update.message.reply_text(response)
 
 
+# =========================
 # BACKGROUND TASKS
+# =========================
 
 async def post_init(app):
 
@@ -98,7 +124,9 @@ async def post_init(app):
     )
 
 
+# =========================
 # MAIN BOT
+# =========================
 
 def main():
 
@@ -109,18 +137,33 @@ def main():
         .build()
     )
 
+    # GLOBAL ERROR HANDLER
+
+    app.add_error_handler(
+        error_handler
+    )
+
     # COMMANDS
 
     app.add_handler(
-        CommandHandler("start", start)
+        CommandHandler(
+            "start",
+            start
+        )
     )
 
     app.add_handler(
-        CommandHandler("mood", set_mood)
+        CommandHandler(
+            "mood",
+            set_mood
+        )
     )
 
     app.add_handler(
-        CommandHandler("search", search_command)
+        CommandHandler(
+            "search",
+            search_command
+        )
     )
 
     app.add_handler(
