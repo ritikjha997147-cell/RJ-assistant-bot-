@@ -7,6 +7,8 @@ from telegram.ext import ContextTypes
 from bot.ai.responder import generate_response
 from bot.ai.classifier import needs_web_search
 
+from bot.memory.chat_backup import backup_chat
+
 from bot.memory.user_memory import (
     USER_DATA,
     USER_COOLDOWN,
@@ -37,6 +39,13 @@ async def handle_message(
     # SAVE USER MESSAGE
 
     save_message(
+        user_id,
+        "user",
+        text
+    )
+
+    await backup_chat(
+        context,
         user_id,
         "user",
         text
@@ -142,7 +151,12 @@ async def handle_message(
             f"{role}: {msg}\n"
         )
 
-    final_prompt = conversation_context
+    # FINAL PROMPT
+
+    final_prompt = (
+        f"{conversation_context}\n"
+        f"user: {text}"
+    )
 
     # AI RESPONSE
 
@@ -160,6 +174,13 @@ async def handle_message(
         response
     )
 
+    await backup_chat(
+        context,
+        user_id,
+        "bot",
+        response
+    )
+
     # USER STATS
 
     if str(user_id) in USER_DATA:
@@ -168,4 +189,6 @@ async def handle_message(
 
     # SEND REPLY
 
-    await update.message.reply_text(response)
+    await update.message.reply_text(
+        response
+    )
