@@ -16,7 +16,6 @@ from bot.handlers.message import handle_message
 from bot.handlers.image import handle_image
 from bot.handlers.showlast import show_last_image
 from bot.handlers.reminder import remind
-
 from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
 
@@ -25,9 +24,31 @@ from bot.reminders.message_scheduler import message_scheduler
 
 from bot.search.ddgs_engine import search_web
 
+from bot.utils.fallback import fallback_reply
+
 
 logging.basicConfig(level=logging.INFO)
 
+
+# SAFE FALLBACK SYSTEM
+
+async def safe_handle_message(update, context):
+
+    try:
+
+        await handle_message(
+            update,
+            context
+        )
+
+    except Exception as e:
+
+        print(f"[MESSAGE ERROR]: {e}")
+
+        await fallback_reply(update)
+
+
+# SEARCH COMMAND
 
 async def search_command(update, context):
 
@@ -64,19 +85,20 @@ async def search_command(update, context):
     await update.message.reply_text(response)
 
 
-# background systems start here
+# BACKGROUND TASKS
+
 async def post_init(app):
 
-    # reminder checker
     asyncio.create_task(
         reminder_checker(app)
     )
 
-    # scheduled messages checker
     asyncio.create_task(
         message_scheduler(app)
     )
 
+
+# MAIN BOT
 
 def main():
 
@@ -87,7 +109,7 @@ def main():
         .build()
     )
 
-    # commands
+    # COMMANDS
 
     app.add_handler(
         CommandHandler("start", start)
@@ -129,7 +151,7 @@ def main():
         )
     )
 
-    # image handler
+    # IMAGE HANDLER
 
     app.add_handler(
         MessageHandler(
@@ -138,12 +160,12 @@ def main():
         )
     )
 
-    # text handler
+    # SAFE TEXT HANDLER
 
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            handle_message
+            safe_handle_message
         )
     )
 
