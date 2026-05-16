@@ -3,6 +3,7 @@ import time
 
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.constants import ChatAction
 
 from bot.ai.responder import generate_response
 from bot.ai.classifier import needs_web_search
@@ -35,6 +36,13 @@ async def handle_message(
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
     text = update.message.text
+
+    # TYPING STATUS
+
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id,
+        action=ChatAction.TYPING
+    )
 
     # SAVE USER MESSAGE
 
@@ -165,6 +173,10 @@ async def handle_message(
         system_prompt,
         final_prompt
     )
+
+    # HUMAN LIKE DELAY
+
+    await asyncio.sleep(5)
 
     # SAVE BOT REPLY
 
