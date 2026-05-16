@@ -21,6 +21,11 @@ from bot.handlers.reminder import remind
 from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
 
+from bot.handlers.custom_command import (
+    create_command,
+    run_custom_command
+)
+
 from bot.reminders.checker import reminder_checker
 from bot.reminders.message_scheduler import message_scheduler
 
@@ -143,7 +148,9 @@ def main():
         error_handler
     )
 
+    # =========================
     # COMMANDS
+    # =========================
 
     app.add_handler(
         CommandHandler(
@@ -194,7 +201,18 @@ def main():
         )
     )
 
+    # CUSTOM COMMAND CREATOR
+
+    app.add_handler(
+        CommandHandler(
+            "createcommand",
+            create_command
+        )
+    )
+
+    # =========================
     # IMAGE HANDLER
+    # =========================
 
     app.add_handler(
         MessageHandler(
@@ -203,7 +221,20 @@ def main():
         )
     )
 
+    # =========================
+    # DYNAMIC CUSTOM COMMANDS
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.COMMAND,
+            run_custom_command
+        )
+    )
+
+    # =========================
     # SAFE TEXT HANDLER
+    # =========================
 
     app.add_handler(
         MessageHandler(
