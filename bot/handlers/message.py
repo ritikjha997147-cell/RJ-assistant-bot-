@@ -26,10 +26,12 @@ from bot.database.chat_memory import (
     save_message,
     get_last_messages
 )
+
 from bot.database.users import (
     create_user,
     update_user_activity
 )
+
 
 async def handle_message(
     update: Update,
@@ -37,8 +39,27 @@ async def handle_message(
 ):
 
     user_id = update.effective_user.id
-    user_name = update.effective_user.first_name
+
+    username = update.effective_user.username
+    first_name = update.effective_user.first_name
+    last_name = update.effective_user.last_name
+
+    user_name = first_name
+
     text = update.message.text
+
+    # SAVE USER
+
+    create_user(
+        user_id,
+        username,
+        first_name,
+        last_name
+    )
+
+    update_user_activity(
+        user_id
+    )
 
     # TYPING STATUS
 
