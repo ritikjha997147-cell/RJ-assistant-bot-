@@ -26,7 +26,10 @@ from bot.database.chat_memory import (
     save_message,
     get_last_messages
 )
-
+from bot.database.users import (
+    create_user,
+    update_user_activity
+)
 
 async def handle_message(
     update: Update,
