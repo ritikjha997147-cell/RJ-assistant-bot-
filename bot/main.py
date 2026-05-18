@@ -98,7 +98,7 @@ async def search_command(
     if not results:
 
         await update.message.reply_text(
-            "Kuch mila nahi bhai."
+            "ye kya bak rhe ho muje kuch nhi mila web pe."
         )
 
         return
