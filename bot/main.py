@@ -23,6 +23,10 @@ from bot.handlers.sendlater import sendlater
 from bot.handlers.userinfo import userinfo
 from bot.handlers.today import today
 
+from bot.handlers.admin_ai import (
+    admin_ai_control
+)
+
 from bot.handlers.custom_command import (
     create_command,
     run_custom_command
@@ -155,12 +159,12 @@ def main():
     # =========================
 
     app.add_handler(
-    CommandHandler(
-        "today",
-        today
+        CommandHandler(
+            "today",
+            today
+        )
     )
-)
-    
+
     app.add_handler(
         CommandHandler(
             "start",
@@ -210,16 +214,12 @@ def main():
         )
     )
 
-    # USER INFO COMMAND
-
     app.add_handler(
         CommandHandler(
             "userinfo",
             userinfo
         )
     )
-
-    # CUSTOM COMMAND CREATOR
 
     app.add_handler(
         CommandHandler(
@@ -248,6 +248,18 @@ def main():
             filters.COMMAND,
             run_custom_command
         )
+    )
+
+    # =========================
+    # ADMIN AI CONTROL
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            admin_ai_control
+        ),
+        group=0
     )
 
     # =========================
