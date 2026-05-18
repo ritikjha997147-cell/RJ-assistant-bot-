@@ -275,7 +275,7 @@ def main():
             filters.TEXT & ~filters.COMMAND,
             admin_ai_control
         ),
-        group=0
+        group=1
     )
 
     # =========================
@@ -286,7 +286,8 @@ def main():
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             safe_handle_message
-        )
+        ),
+        group=2
     )
 
     print("✅ RJ BOT PRO RUNNING")
