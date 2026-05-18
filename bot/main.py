@@ -155,6 +155,13 @@ def main():
     # =========================
 
     app.add_handler(
+    CommandHandler(
+        "today",
+        today
+    )
+)
+    
+    app.add_handler(
         CommandHandler(
             "start",
             start
