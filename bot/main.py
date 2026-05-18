@@ -21,6 +21,7 @@ from bot.handlers.reminder import remind
 from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
 from bot.handlers.userinfo import userinfo
+from bot.handlers.today import today
 
 from bot.handlers.custom_command import (
     create_command,
