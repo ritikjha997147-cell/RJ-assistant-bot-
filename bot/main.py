@@ -20,6 +20,7 @@ from bot.handlers.showlast import show_last_image
 from bot.handlers.reminder import remind
 from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
+from bot.handlers.userinfo import userinfo
 
 from bot.handlers.custom_command import (
     create_command,
@@ -198,6 +199,15 @@ def main():
         CommandHandler(
             "sendlater",
             sendlater
+        )
+    )
+
+    # USER INFO COMMAND
+
+    app.add_handler(
+        CommandHandler(
+            "userinfo",
+            userinfo
         )
     )
 
