@@ -27,6 +27,10 @@ from bot.handlers.admin_ai import (
     admin_ai_control
 )
 
+from bot.handlers.contact_ai import (
+    contact_ai
+)
+
 from bot.handlers.custom_command import (
     create_command,
     run_custom_command
@@ -248,6 +252,18 @@ def main():
             filters.COMMAND,
             run_custom_command
         )
+    )
+
+    # =========================
+    # CONTACT AI
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            contact_ai
+        ),
+        group=0
     )
 
     # =========================
