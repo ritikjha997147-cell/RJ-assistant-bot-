@@ -65,7 +65,10 @@ async def contact_ai(
     # SHOW CONTACTS
     # =========================
 
-    if text.lower() == "show contacts":
+    if text.lower() in [
+    "show contact",
+    "show contacts"
+]:
 
         contacts = get_all_contacts()
 
