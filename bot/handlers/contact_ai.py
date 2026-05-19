@@ -1,158 +1,308 @@
-import re
+import logging
+import asyncio
 
 from telegram import Update
-from telegram.ext import ContextTypes
-
-from bot.database.contacts import (
-    add_contact,
-    get_contact,
-    get_all_contacts
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters
 )
 
+from bot.config import BOT_TOKEN
 
-ADMIN_ID = 7859072136
+from bot.handlers.start import start
+from bot.handlers.mood import set_mood
+from bot.handlers.message import handle_message
+from bot.handlers.image import handle_image
+from bot.handlers.showlast import show_last_image
+from bot.handlers.reminder import remind
+from bot.handlers.connect import connect
+from bot.handlers.sendlater import sendlater
+from bot.handlers.userinfo import userinfo
+from bot.handlers.today import today
+
+from bot.handlers.natural_scheduler import (
+    natural_scheduler
+)
+
+from bot.handlers.admin_ai import (
+    admin_ai_control
+)
+
+from bot.handlers.contact_ai import (
+    contact_ai
+)
+
+from bot.reminders.checker import reminder_checker
+from bot.reminders.message_scheduler import message_scheduler
+
+from bot.search.ddgs_engine import search_web
+
+from bot.utils.fallback import fallback_reply
 
 
-async def contact_ai(
+logging.basicConfig(level=logging.INFO)
+
+
+# =========================
+# ERROR HANDLER
+# =========================
+
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    print(f"[GLOBAL ERROR]: {context.error}")
+
+
+# =========================
+# SAFE MESSAGE HANDLER
+# =========================
+
+async def safe_handle_message(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
-    
 
-    if update.effective_user.id != ADMIN_ID:
+    # =========================
+    # SKIP IF ALREADY HANDLED
+    # =========================
+
+    if context.user_data.get("handled"):
+
+        context.user_data["handled"] = False
         return
 
-    text = update.message.text.strip()
+    try:
 
-    # =========================
-    # ADD CONTACT
-    # =========================
-
-    add_pattern = (
-        r"add contact (\d+)\s(.+)"
-    )
-
-    add_match = re.search(
-        add_pattern,
-        text,
-        re.IGNORECASE
-    )
-
-    if add_match:
-
-        telegram_id = int(
-            add_match.group(1)
+        await handle_message(
+            update,
+            context
         )
 
-        custom_name = (
-            add_match.group(2).strip()
-        )
+    except Exception as e:
 
-        add_contact(
-            telegram_id,
-            custom_name
-        )
+        print(f"[MESSAGE ERROR]: {e}")
+
+        await fallback_reply(update)
+
+
+# =========================
+# SEARCH COMMAND
+# =========================
+
+async def search_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not context.args:
 
         await update.message.reply_text(
-            f"✅ Contact saved:\n\n"
-            f"Name: {custom_name}\n"
-            f"ID: {telegram_id}"
+            "Bhai kya search karna hai?"
         )
 
-        context.user_data["handled"] = True
         return
 
-    # =========================
-    # SHOW CONTACTS
-    # =========================
+    query = " ".join(context.args)
 
-    if text.lower() in [
-    "show contact",
-    "show contacts"
-]:
+    results = search_web(query)
 
-        contacts = get_all_contacts()
-
-        if not contacts:
-
-            await update.message.reply_text(
-                "No contacts found."
-            )
-
-            context.user_data["handled"] = True
-            return
-
-        response = "📒 CONTACTS\n\n"
-
-        for c in contacts:
-
-            response += (
-                f"Name: {c[1]}\n"
-                f"ID: {c[0]}\n\n"
-            )
+    if not results:
 
         await update.message.reply_text(
-            response
+            "ye kya bak rhe ho muje kuch nhi mila web pe."
         )
 
-        context.user_data["handled"] = True
         return
 
-    # =========================
-    # SEND MESSAGE
-    # =========================
+    formatted = []
 
-    send_pattern = (
-        r"(.+?)\sko\s(bhejo|bolo|bol)\s(.+)"
+    for r in results:
+
+        formatted.append(
+            f"🔹 {r['title']}\n{r['url']}"
+        )
+
+    response = "\n\n".join(formatted)
+
+    await update.message.reply_text(
+        response
     )
 
-    send_match = re.search(
-        send_pattern,
-        text,
-        re.IGNORECASE
+
+# =========================
+# BACKGROUND TASKS
+# =========================
+
+async def post_init(app):
+
+    asyncio.create_task(
+        reminder_checker(app)
     )
 
-    if send_match:
+    asyncio.create_task(
+        message_scheduler(app)
+    )
 
-        custom_name = (
-            send_match.group(1).strip()
+
+# =========================
+# MAIN BOT
+# =========================
+
+def main():
+
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
+
+    # =========================
+    # GLOBAL ERROR HANDLER
+    # =========================
+
+    app.add_error_handler(
+        error_handler
+    )
+
+    # =========================
+    # NATURAL SCHEDULER
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            natural_scheduler
+        ),
+        group=0
+    )
+
+    # =========================
+    # CONTACT AI
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            contact_ai
+        ),
+        group=0
+    )
+
+    # =========================
+    # ADMIN AI CONTROL
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            admin_ai_control
+        ),
+        group=1
+    )
+
+    # =========================
+    # COMMANDS
+    # =========================
+
+    app.add_handler(
+        CommandHandler(
+            "today",
+            today
         )
+    )
 
-        message = (
-            send_match.group(3).strip()
+    app.add_handler(
+        CommandHandler(
+            "start",
+            start
         )
+    )
 
-        result = get_contact(
-            custom_name
+    app.add_handler(
+        CommandHandler(
+            "mood",
+            set_mood
         )
+    )
 
-        if not result:
+    app.add_handler(
+        CommandHandler(
+            "search",
+            search_command
+        )
+    )
 
-            await update.message.reply_text(
-                f"❌ Contact not found: {custom_name}"
-            )
+    app.add_handler(
+        CommandHandler(
+            "showlast",
+            show_last_image
+        )
+    )
 
-            context.user_data["handled"] = True
-            return
+    app.add_handler(
+        CommandHandler(
+            "remind",
+            remind
+        )
+    )
 
-        telegram_id = result[0]
+    app.add_handler(
+        CommandHandler(
+            "connect",
+            connect
+        )
+    )
 
-        try:
+    app.add_handler(
+        CommandHandler(
+            "sendlater",
+            sendlater
+        )
+    )
 
-            await context.bot.send_message(
-                chat_id=telegram_id,
-                text=message
-            )
+    app.add_handler(
+        CommandHandler(
+            "userinfo",
+            userinfo
+        )
+    )
 
-            await update.message.reply_text(
-                "✅ Message sent"
-            )
+    # =========================
+    # IMAGE HANDLER
+    # =========================
 
-        except Exception as e:
+    app.add_handler(
+        MessageHandler(
+            filters.PHOTO,
+            handle_image
+        )
+    )
 
-            await update.message.reply_text(
-                f"❌ Error:\n{e}"
-            )
+    # =========================
+    # SAFE TEXT HANDLER
+    # =========================
 
-        context.user_data["handled"] = True
-        return
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            safe_handle_message
+        ),
+        group=2
+    )
+
+    print("✅ RJ BOT PRO RUNNING")
+
+    app.run_polling(
+        drop_pending_updates=True
+    )
+
+
+if __name__ == "__main__":
+
+    main()
