@@ -20,7 +20,7 @@ async def natural_scheduler(
 
     # =========================
     # PATTERN:
-    # Ritik Main ko bolo 30 min baad hello
+    # Devesh ko bolo 30 min baad hello
     # =========================
 
     pattern = (
@@ -84,21 +84,25 @@ async def natural_scheduler(
         f"✅ Scheduled message for {custom_name}"
     )
 
-    # WAIT
+    # BACKGROUND TASK
 
-    await asyncio.sleep(seconds)
+    async def delayed_send():
 
-    # SEND MESSAGE
+        await asyncio.sleep(seconds)
 
-    try:
+        try:
 
-        await context.bot.send_message(
-            chat_id=telegram_id,
-            text=message
-        )
+            await context.bot.send_message(
+                chat_id=telegram_id,
+                text=message
+            )
 
-    except Exception as e:
+        except Exception as e:
 
-        await update.message.reply_text(
-            f"❌ Failed:\n{e}"
-        )
+            print(e)
+
+    asyncio.create_task(
+        delayed_send()
+    )
+
+    return
