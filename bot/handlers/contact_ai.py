@@ -97,7 +97,7 @@ async def contact_ai(
     # =========================
 
     send_pattern = (
-        r"(.+?)\sko\s(bhejo|bolo)\s(.+)"
+        r"(.+?)\sko\s(bhejo|bolo|bol)\s(.+)"
     )
 
     send_match = re.search(
