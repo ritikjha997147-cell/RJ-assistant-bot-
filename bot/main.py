@@ -23,6 +23,10 @@ from bot.handlers.sendlater import sendlater
 from bot.handlers.userinfo import userinfo
 from bot.handlers.today import today
 
+from bot.handlers.natural_scheduler import (
+    natural_scheduler
+)
+
 from bot.handlers.admin_ai import (
     admin_ai_control
 )
