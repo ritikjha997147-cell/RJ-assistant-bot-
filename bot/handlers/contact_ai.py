@@ -21,8 +21,7 @@ async def contact_ai(
     if update.effective_user.id != ADMIN_ID:
         return
 
-    text = update.message.text
-
+    text = update.message.text.strip()
 
     # =========================
     # ADD CONTACT
@@ -44,7 +43,9 @@ async def contact_ai(
             add_match.group(1)
         )
 
-        custom_name = add_match.group(2).strip()
+        custom_name = (
+            add_match.group(2).strip()
+        )
 
         add_contact(
             telegram_id,
@@ -57,8 +58,8 @@ async def contact_ai(
             f"ID: {telegram_id}"
         )
 
+        context.user_data["handled"] = True
         return
-
 
     # =========================
     # SHOW CONTACTS
@@ -74,6 +75,7 @@ async def contact_ai(
                 "No contacts found."
             )
 
+            context.user_data["handled"] = True
             return
 
         response = "📒 CONTACTS\n\n"
@@ -89,8 +91,8 @@ async def contact_ai(
             response
         )
 
+        context.user_data["handled"] = True
         return
-
 
     # =========================
     # SEND MESSAGE
@@ -108,9 +110,13 @@ async def contact_ai(
 
     if send_match:
 
-        custom_name = send_match.group(1).strip()
+        custom_name = (
+            send_match.group(1).strip()
+        )
 
-        message = send_match.group(3)
+        message = (
+            send_match.group(3).strip()
+        )
 
         result = get_contact(
             custom_name
@@ -119,9 +125,10 @@ async def contact_ai(
         if not result:
 
             await update.message.reply_text(
-                "❌ Contact not found"
+                f"❌ Contact not found: {custom_name}"
             )
 
+            context.user_data["handled"] = True
             return
 
         telegram_id = result[0]
@@ -142,3 +149,6 @@ async def contact_ai(
             await update.message.reply_text(
                 f"❌ Error:\n{e}"
             )
+
+        context.user_data["handled"] = True
+        return
