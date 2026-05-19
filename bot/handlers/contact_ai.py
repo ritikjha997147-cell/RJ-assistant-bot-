@@ -29,7 +29,7 @@ async def contact_ai(
     # =========================
 
     add_pattern = (
-        r"add contact (\d+) ([a-zA-Z0-9_]+)(.*)"
+        r"add contact (\d+)\s(.+)"
     )
 
     add_match = re.search(
@@ -44,14 +44,11 @@ async def contact_ai(
             add_match.group(1)
         )
 
-        custom_name = add_match.group(2)
-
-        tag = add_match.group(3).strip()
+        custom_name = add_match.group(2).strip()
 
         add_contact(
             telegram_id,
-            custom_name,
-            tag
+            custom_name
         )
 
         await update.message.reply_text(
@@ -85,8 +82,7 @@ async def contact_ai(
 
             response += (
                 f"Name: {c[1]}\n"
-                f"ID: {c[0]}\n"
-                f"Tag: {c[2]}\n\n"
+                f"ID: {c[0]}\n\n"
             )
 
         await update.message.reply_text(
@@ -101,7 +97,7 @@ async def contact_ai(
     # =========================
 
     send_pattern = (
-        r"([a-zA-Z0-9_]+)\sko\s(bhejo|bolo)\s(.+)"
+        r"(.+?)\sko\s(bhejo|bolo)\s(.+)"
     )
 
     send_match = re.search(
@@ -112,7 +108,7 @@ async def contact_ai(
 
     if send_match:
 
-        custom_name = send_match.group(1)
+        custom_name = send_match.group(1).strip()
 
         message = send_match.group(3)
 
