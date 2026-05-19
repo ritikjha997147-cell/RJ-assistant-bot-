@@ -1,5 +1,4 @@
 import re
-import time
 import asyncio
 
 from telegram import Update
@@ -21,11 +20,11 @@ async def natural_scheduler(
 
     # =========================
     # PATTERN:
-    # Ritik Main ko bol 30 min baad hello
+    # Ritik Main ko bolo 30 min baad hello
     # =========================
 
     pattern = (
-        r"(.+?)\sko\s(bol|bhejo)\s(\d+)\s(min|minute|minutes|hr|hour|hours)\s(baad|bad)\s(.+)"
+        r"(.+?)\sko\s(bol|bolo|bhejo)\s(\d+)\s(min|minute|minutes|hr|hour|hours)\s(baad|bad)\s(.+)"
     )
 
     match = re.search(
@@ -53,7 +52,9 @@ async def natural_scheduler(
 
     # GET CONTACT
 
-    result = get_contact(custom_name)
+    result = get_contact(
+        custom_name
+    )
 
     if not result:
 
@@ -69,7 +70,11 @@ async def natural_scheduler(
 
     seconds = amount * 60
 
-    if unit in ["hr", "hour", "hours"]:
+    if unit in [
+        "hr",
+        "hour",
+        "hours"
+    ]:
 
         seconds = amount * 3600
 
