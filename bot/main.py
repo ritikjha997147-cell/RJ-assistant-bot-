@@ -61,7 +61,18 @@ async def error_handler(
 ):
 
     print(f"[GLOBAL ERROR]: {context.error}")
+    
+# =========================
+# NATURAL SCHEDULER
+# =========================
 
+app.add_handler(
+    MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        natural_scheduler
+    ),
+    group=0
+)
 
 # =========================
 # SAFE MESSAGE HANDLER
