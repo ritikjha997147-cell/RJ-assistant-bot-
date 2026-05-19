@@ -72,6 +72,11 @@ async def safe_handle_message(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    if context.user_data.get("handled"):
+
+        context.user_data["handled"] = False
+        return
+
     try:
 
         await handle_message(
