@@ -35,11 +35,6 @@ from bot.handlers.contact_ai import (
     contact_ai
 )
 
-from bot.handlers.custom_command import (
-    create_command,
-    run_custom_command
-)
-
 from bot.reminders.checker import reminder_checker
 from bot.reminders.message_scheduler import message_scheduler
 
@@ -134,7 +129,9 @@ async def search_command(
 
     response = "\n\n".join(formatted)
 
-    await update.message.reply_text(response)
+    await update.message.reply_text(
+        response
+    )
 
 
 # =========================
@@ -276,13 +273,6 @@ def main():
         )
     )
 
-    app.add_handler(
-        CommandHandler(
-            "createcommand",
-            create_command
-        )
-    )
-
     # =========================
     # IMAGE HANDLER
     # =========================
@@ -291,17 +281,6 @@ def main():
         MessageHandler(
             filters.PHOTO,
             handle_image
-        )
-    )
-
-    # =========================
-    # DYNAMIC CUSTOM COMMANDS
-    # =========================
-
-    app.add_handler(
-        MessageHandler(
-            filters.COMMAND,
-            run_custom_command
         )
     )
 
