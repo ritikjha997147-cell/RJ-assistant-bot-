@@ -1,6 +1,5 @@
 import logging
 import asyncio
-import asyncio
 
 from telegram import Update
 from telegram.ext import (
@@ -62,18 +61,7 @@ async def error_handler(
 ):
 
     print(f"[GLOBAL ERROR]: {context.error}")
-    
-# =========================
-# NATURAL SCHEDULER
-# =========================
 
-app.add_handler(
-    MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        natural_scheduler
-    ),
-    group=0
-)
 
 # =========================
 # SAFE MESSAGE HANDLER
@@ -168,10 +156,48 @@ def main():
         .build()
     )
 
+    # =========================
     # GLOBAL ERROR HANDLER
+    # =========================
 
     app.add_error_handler(
         error_handler
+    )
+
+    # =========================
+    # NATURAL SCHEDULER
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            natural_scheduler
+        ),
+        group=0
+    )
+
+    # =========================
+    # CONTACT AI
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            contact_ai
+        ),
+        group=0
+    )
+
+    # =========================
+    # ADMIN AI CONTROL
+    # =========================
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            admin_ai_control
+        ),
+        group=1
     )
 
     # =========================
@@ -268,30 +294,6 @@ def main():
             filters.COMMAND,
             run_custom_command
         )
-    )
-
-    # =========================
-    # CONTACT AI
-    # =========================
-
-    app.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            contact_ai
-        ),
-        group=0
-    )
-
-    # =========================
-    # ADMIN AI CONTROL
-    # =========================
-
-    app.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            admin_ai_control
-        ),
-        group=1
     )
 
     # =========================
