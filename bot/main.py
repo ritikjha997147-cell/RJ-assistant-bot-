@@ -72,6 +72,10 @@ async def safe_handle_message(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    # =========================
+    # SKIP IF ALREADY HANDLED
+    # =========================
+
     if context.user_data.get("handled"):
 
         context.user_data["handled"] = False
