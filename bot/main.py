@@ -36,7 +36,9 @@ from bot.handlers.contact_ai import (
 )
 
 from bot.reminders.checker import reminder_checker
-from bot.reminders.message_scheduler import message_scheduler
+from bot.reminders.message_scheduler import (
+    message_scheduler
+)
 
 from bot.search.ddgs_engine import search_web
 
@@ -67,9 +69,7 @@ async def safe_handle_message(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    # =========================
     # SKIP IF ALREADY HANDLED
-    # =========================
 
     if context.user_data.get("handled"):
 
