@@ -22,6 +22,7 @@ from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
 from bot.handlers.userinfo import userinfo
 from bot.handlers.today import today
+from bot.ai.human_neuron import train_brain
 
 from bot.handlers.natural_scheduler import (
     natural_scheduler
@@ -209,7 +210,16 @@ def main():
     # =========================
     # COMMANDS
     # =========================
+    
+async def brain(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
+    result = train_brain()
+
+    await update.message.reply_text(result)
+    
     app.add_handler(
         CommandHandler(
             "today",
@@ -272,6 +282,13 @@ def main():
             userinfo
         )
     )
+    
+    app.add_handler(
+    CommandHandler(
+        "brain",
+        brain
+    )
+)
 
     # =========================
     # IMAGE HANDLER
