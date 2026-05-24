@@ -36,6 +36,7 @@ from bot.handlers.contact_ai import (
 )
 
 from bot.reminders.checker import reminder_checker
+
 from bot.reminders.message_scheduler import (
     message_scheduler
 )
@@ -43,6 +44,8 @@ from bot.reminders.message_scheduler import (
 from bot.search.ddgs_engine import search_web
 
 from bot.utils.fallback import fallback_reply
+
+from bot.ai.human_neuron import train_brain
 
 
 logging.basicConfig(level=logging.INFO)
@@ -58,6 +61,20 @@ async def error_handler(
 ):
 
     print(f"[GLOBAL ERROR]: {context.error}")
+
+
+# =========================
+# BRAIN COMMAND
+# =========================
+
+async def brain(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    result = train_brain()
+
+    await update.message.reply_text(result)
 
 
 # =========================
@@ -209,16 +226,7 @@ def main():
     # =========================
     # COMMANDS
     # =========================
-    
-async def brain(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
 
-    result = train_brain()
-
-    await update.message.reply_text(result)
-    
     app.add_handler(
         CommandHandler(
             "today",
@@ -281,13 +289,13 @@ async def brain(
             userinfo
         )
     )
-    
+
     app.add_handler(
-    CommandHandler(
-        "brain",
-        brain
+        CommandHandler(
+            "brain",
+            brain
+        )
     )
-)
 
     # =========================
     # IMAGE HANDLER
