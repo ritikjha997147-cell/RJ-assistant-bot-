@@ -174,7 +174,7 @@ async def post_init(app):
 # =========================
 
 def main():
-
+    keep_alive()
     app = (
         Application.builder()
         .token(BOT_TOKEN)
