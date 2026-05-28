@@ -1,5 +1,11 @@
-import logging
+```python
 import asyncio
+
+asyncio.set_event_loop(
+    asyncio.new_event_loop()
+)
+
+import logging
 
 from telegram import Update
 from telegram.ext import (
@@ -328,3 +334,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+```
