@@ -1,4 +1,3 @@
-```python
 import asyncio
 
 asyncio.set_event_loop(
@@ -334,4 +333,4 @@ def main():
 if __name__ == "__main__":
 
     main()
-```
+
