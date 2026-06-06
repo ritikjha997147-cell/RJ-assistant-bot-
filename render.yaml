@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: rj-assistant-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m bot.main
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DATABASE_CHANNEL_ID
+        sync: false
+      - key: IMAGE_DB_CHANNEL_ID
+        sync: false
+      - key: MEMORY_CHANNEL_ID
+        sync: false
+    autoDeploy: true

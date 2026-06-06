@@ -172,7 +172,7 @@ async def handle_message(
 
     memory = get_last_messages(
         user_id,
-        limit=10
+        limit=50
     )
 
     conversation_context = ""
@@ -200,7 +200,6 @@ async def handle_message(
 
     # HUMAN LIKE DELAY
 
-    await asyncio.sleep(5)
 
     # SAVE BOT REPLY
 

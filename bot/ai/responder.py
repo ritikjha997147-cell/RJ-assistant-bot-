@@ -22,7 +22,6 @@ def generate_response(
     ]
 
     if history:
-
         messages.extend(history)
 
     messages.append(
@@ -36,7 +35,7 @@ def generate_response(
         model=MODEL_NAME,
         messages=messages,
         temperature=0.4,
-        max_tokens=300
+        max_tokens=1000  # increased from 300
     )
 
     return completion.choices[0].message.content

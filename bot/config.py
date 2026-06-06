@@ -10,13 +10,10 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 MODEL_NAME = "llama-3.1-8b-instant"
 
-COOLDOWN_TIME = 5
-IMAGE_DB_CHANNEL_ID = os.getenv(
-    "IMAGE_DB_CHANNEL_ID"
-)
+COOLDOWN_TIME = 1  # reduced from 5 to 1 second
 
-MEMORY_CHANNEL_ID = os.getenv(
-    "MEMORY_CHANNEL_ID"
-)
+IMAGE_DB_CHANNEL_ID = os.getenv("IMAGE_DB_CHANNEL_ID")
 
-MAX_SEARCH_RESULTS = 3# Configuration settings for the bot
+MEMORY_CHANNEL_ID = os.getenv("MEMORY_CHANNEL_ID")
+
+MAX_SEARCH_RESULTS = 3

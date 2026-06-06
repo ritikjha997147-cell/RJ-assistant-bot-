@@ -49,7 +49,7 @@ def save_message(
 
 def get_last_messages(
     user_id,
-    limit=10
+    limit=50
 ):
 
     cursor.execute(
