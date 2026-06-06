@@ -1,41 +1,21 @@
-from groq import Groq
+import google.generativeai as genai
+from bot.config import GEMINI_API_KEY, MODEL_NAME
 
-from bot.config import (
-    GROQ_API_KEY,
-    MODEL_NAME
-)
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel(MODEL_NAME)
 
-client = Groq(api_key=GROQ_API_KEY)
+def generate_response(system_prompt, user_message, history=None):
 
-
-def generate_response(
-    system_prompt,
-    user_message,
-    history=None
-):
-
-    messages = [
-        {
-            "role": "system",
-            "content": system_prompt
-        }
-    ]
+    conversation = system_prompt + "\n\n"
 
     if history:
-        messages.extend(history)
+        for msg in history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            conversation += f"{role}: {content}\n"
 
-    messages.append(
-        {
-            "role": "user",
-            "content": user_message
-        }
-    )
+    conversation += f"user: {user_message}"
 
-    completion = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=messages,
-        temperature=0.4,
-        max_tokens=1000  # increased from 300
-    )
+    response = model.generate_content(conversation)
 
-    return completion.choices[0].message.content
+    return response.text
