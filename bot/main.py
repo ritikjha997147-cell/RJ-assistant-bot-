@@ -6,6 +6,8 @@ asyncio.set_event_loop(
 
 import logging
 
+from keep_alive import keep_alive
+
 from telegram import Update
 from telegram.ext import (
     Application,
