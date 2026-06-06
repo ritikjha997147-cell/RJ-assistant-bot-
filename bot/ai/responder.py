@@ -1,9 +1,10 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from bot.config import GEMINI_API_KEY, MODEL_NAME
 
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel(MODEL_NAME)
-
+model = client = genai.Client(api_key=key)
+return client
 def generate_response(system_prompt, user_message, history=None):
 
     conversation = system_prompt + "\n\n"
@@ -16,6 +17,8 @@ def generate_response(system_prompt, user_message, history=None):
 
     conversation += f"user: {user_message}"
 
-    response = model.generate_content(conversation)
-
-    return response.text
+response = model.models.generate_content(
+    model=MODEL_NAME,
+    contents=conversation
+)
+return response.text

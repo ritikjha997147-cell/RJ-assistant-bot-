@@ -1,21 +1,12 @@
-from groq import Groq
-
-from bot.config import (
-    GROQ_API_KEY,
-    MODEL_NAME
-)
-
-client = Groq(api_key=GROQ_API_KEY)
-
+from google import genai
+from bot.config import GEMINI_API_KEYS, MODEL_NAME
 
 def needs_web_search(user_message):
 
     prompt = f"""
 You are a classifier.
-
 Determine if this message needs
 REAL-TIME internet search.
-
 Reply ONLY:
 SEARCH
 or
@@ -30,22 +21,18 @@ Search needed for:
 - trends
 - recent updates
 
-User:
-{user_message}
+User: {user_message}
 """
 
-    completion = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0,
-        max_tokens=5
-    )
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEYS[0])
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
+        result = response.text.strip()
+        return result == "SEARCH"
 
-    result = completion.choices[0].message.content.strip()
-
-    return result == "SEARCH"
+    except Exception as e:
+        print(f"[CLASSIFIER ERROR]: {e}")
+        return False
