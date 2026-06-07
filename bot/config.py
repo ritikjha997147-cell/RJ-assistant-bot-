@@ -11,6 +11,7 @@ GEMINI_API_KEYS = [
 ]
 GEMINI_API_KEYS = [k for k in GEMINI_API_KEYS if k]
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_NAME = "gemini-2.0-flash"
 COOLDOWN_TIME = 1
 IMAGE_DB_CHANNEL_ID = os.getenv("IMAGE_DB_CHANNEL_ID")
