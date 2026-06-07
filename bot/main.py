@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 
 asyncio.set_event_loop(
     asyncio.new_event_loop()
@@ -146,7 +146,7 @@ async def search_command(
     for r in results:
 
         formatted.append(
-            f"🔹 {r['title']}\n{r['url']}"
+            f"ðŸ”¹ {r['title']}\n{r['url']}"
         )
 
     response = "\n\n".join(formatted)
@@ -181,6 +181,7 @@ def main():
         Application.builder()
         .token(BOT_TOKEN)
         .post_init(post_init)
+        .job_queue(None)
         .build()
     )
 
@@ -325,7 +326,7 @@ def main():
         group=2
     )
 
-    print("✅ RJ BOT PRO RUNNING")
+    print("âœ… RJ BOT PRO RUNNING")
 
     app.run_polling(
         drop_pending_updates=True
@@ -335,4 +336,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
