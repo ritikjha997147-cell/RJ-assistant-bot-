@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import time
 
 from telegram import Update
@@ -37,6 +37,11 @@ async def handle_message(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+    from bot.handlers.image import handle_image_title
+    if context.user_data.get("waiting_for_image_title"):
+        handled = await handle_image_title(update, context)
+        if handled:
+            return
 
     user_id = update.effective_user.id
 
@@ -101,13 +106,13 @@ async def handle_message(
                 await save_user_data(context)
 
                 await update.message.reply_text(
-                    "✅ Verification successful"
+                    "âœ… Verification successful"
                 )
 
             else:
 
                 await update.message.reply_text(
-                    "❌ Wrong answer"
+                    "âŒ Wrong answer"
                 )
 
             return
@@ -127,7 +132,7 @@ async def handle_message(
     ):
 
         await update.message.reply_text(
-            "Ruk ja bhai ☕"
+            "Ruk ja bhai â˜•"
         )
 
         return
@@ -227,3 +232,4 @@ async def handle_message(
     await update.message.reply_text(
         response
     )
+
