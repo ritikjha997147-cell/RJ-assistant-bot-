@@ -37,6 +37,11 @@ async def handle_message(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+    from bot.handlers.busy import is_busy
+    busy, busy_msg = is_busy(update.effective_user.id)
+    if busy:
+        await update.message.reply_text(f"🔴 {busy_msg}")
+        return
     from bot.handlers.image import handle_image_title
     if context.user_data.get("waiting_for_image_title"):
         handled = await handle_image_title(update, context)
@@ -232,4 +237,5 @@ async def handle_message(
     await update.message.reply_text(
         response
     )
+
 
