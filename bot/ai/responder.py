@@ -18,10 +18,7 @@ def generate_response(system_prompt, user_message, history=None):
     for attempt in range(len(GEMINI_API_KEYS)):
         try:
             client = genai.Client(api_key=GEMINI_API_KEYS[current_key_index])
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=conversation
-            )
+            response = client.models.generate_content(model="gemini-2.0-flash", contents=conversation)
             print(f"[AI] Gemini key {current_key_index + 1} used")
             return response.text
         except Exception as e:
@@ -40,13 +37,8 @@ def generate_response(system_prompt, user_message, history=None):
         if history:
             messages.extend(history)
         messages.append({"role": "user", "content": user_message})
-        completion = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            temperature=0.4,
-            max_tokens=1000
-        )
+        completion = groq_client.chat.completions.create(model="llama-3.1-8b-instant", messages=messages, temperature=0.4, max_tokens=1000)
         return completion.choices[0].message.content
     except Exception as e:
         print(f"[GROQ ERROR]: {e}")
-        return "Abhi thoda busy hoon, thodi der baad try karo!"
+        return "Ek second bhai, thoda busy hoon. Dobara try karo!"
