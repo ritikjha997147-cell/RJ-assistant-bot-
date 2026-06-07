@@ -24,7 +24,7 @@ from bot.handlers.mood import set_mood
 from bot.handlers.message import handle_message
 from bot.handlers.image import handle_image
 from bot.handlers.showlast import show_last_image
-from bot.handlers.reminder import remind, list_reminders, cancel_reminder
+from bot.handlers.reminder import remind
 from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
 from bot.handlers.userinfo import userinfo
@@ -335,5 +335,4 @@ def main():
 if __name__ == "__main__":
 
     main()
-
 
