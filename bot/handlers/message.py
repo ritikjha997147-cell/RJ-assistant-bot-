@@ -37,11 +37,30 @@ async def handle_message(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+    from bot.config import OWNER_ID
     from bot.handlers.busy import is_busy
+    from bot.handlers.status import check_afk_mention
+    from bot.handlers.logs import handle_log_query, is_log_query
+    from bot.database.user_logs import log_message
+
     busy, busy_msg = is_busy(update.effective_user.id)
     if busy:
         await update.message.reply_text(f"🔴 {busy_msg}")
         return
+
+    if not OWNER_ID or update.effective_user.id != OWNER_ID:
+        log_message(update.effective_user.id, update.effective_user.username, update.effective_user.first_name, update.message.text)
+    
+    if OWNER_ID and update.effective_user.id == OWNER_ID:
+        if is_log_query(update.message.text):
+            handled = await handle_log_query(update, context)
+            if handled:
+                return
+
+    afk_reply_needed, afk_reply = check_afk_mention(update.message.text)
+    if afk_reply_needed:
+        await update.message.reply_text(afk_reply)
+
     from bot.handlers.image import handle_image_title
     if context.user_data.get("waiting_for_image_title"):
         handled = await handle_image_title(update, context)
@@ -237,5 +256,6 @@ async def handle_message(
     await update.message.reply_text(
         response
     )
+
 
 
