@@ -2,7 +2,7 @@
 asyncio.set_event_loop(asyncio.new_event_loop())
 import logging
 from keep_alive import keep_alive
-from bot.reminders.scheduler import start_scheduler, restore_reminders
+from bot.reminders.scheduler import scheduler, restore_reminders
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from bot.config import BOT_TOKEN
@@ -52,12 +52,14 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n\n".join(f"🔹 {r['title']}\n{r['url']}" for r in results))
 
 async def post_init(app):
+    if not scheduler.running:
+        scheduler.start()
+        print("[SCHEDULER] APScheduler started")
     asyncio.create_task(reminder_checker(app))
     asyncio.create_task(message_scheduler(app))
 
 def main():
     keep_alive()
-    start_scheduler()
     app = (Application.builder().token(BOT_TOKEN).post_init(post_init).job_queue(None).build())
     app.add_error_handler(error_handler)
     restore_reminders(app.bot)
@@ -85,3 +87,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

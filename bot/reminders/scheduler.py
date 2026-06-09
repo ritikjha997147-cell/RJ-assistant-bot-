@@ -6,9 +6,7 @@ from bot.database.reminder_db import delete_reminder
 scheduler = AsyncIOScheduler(jobstores={"default": MemoryJobStore()}, job_defaults={"misfire_grace_time": 60})
 
 def start_scheduler():
-    if not scheduler.running:
-        scheduler.start()
-        print("[SCHEDULER] APScheduler started")
+    pass  # scheduler starts in post_init instead
 
 async def send_reminder(bot, chat_id, message, reminder_id):
     try:
@@ -31,3 +29,4 @@ def restore_reminders(bot):
             schedule_reminder(bot, rid, chat_id, message, remind_at)
             count += 1
     print(f"[SCHEDULER] Restored {count} pending reminders")
+
