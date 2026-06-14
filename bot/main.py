@@ -172,6 +172,21 @@ def main():
         error_handler
     )
 
+    # COMMANDS
+
+    app.add_handler(CommandHandler("today", today))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("hello", hello_command))
+    app.add_handler(CommandHandler("mood", set_mood))
+    app.add_handler(CommandHandler("search", search_command))
+    app.add_handler(CommandHandler("showlast", show_last_image))
+    app.add_handler(CommandHandler("remind", remind))
+    app.add_handler(CommandHandler("connect", connect))
+    app.add_handler(CommandHandler("sendlater", sendlater))
+    app.add_handler(CommandHandler("userinfo", userinfo))
+    app.add_handler(CommandHandler(["send", "msg"], send_command))
+
     # NATURAL SCHEDULER
 
     app.add_handler(
@@ -201,21 +216,6 @@ def main():
         ),
         group=1
     )
-
-    # COMMANDS
-
-    app.add_handler(CommandHandler("today", today))
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("hello", hello_command))
-    app.add_handler(CommandHandler("mood", set_mood))
-    app.add_handler(CommandHandler("search", search_command))
-    app.add_handler(CommandHandler("showlast", show_last_image))
-    app.add_handler(CommandHandler("remind", remind))
-    app.add_handler(CommandHandler("connect", connect))
-    app.add_handler(CommandHandler("sendlater", sendlater))
-    app.add_handler(CommandHandler("userinfo", userinfo))
-    app.add_handler(CommandHandler(["send", "msg"], send_command))
 
     # IMAGE HANDLER
 
