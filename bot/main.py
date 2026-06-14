@@ -15,7 +15,7 @@ from telegram.ext import (
 
 from bot.config import BOT_TOKEN
 
-from bot.handlers.start import start
+from bot.handlers.start import start, help_command
 from bot.handlers.mood import set_mood
 from bot.handlers.message import handle_message
 from bot.handlers.image import handle_image
@@ -27,7 +27,6 @@ from bot.handlers.userinfo import userinfo
 from bot.handlers.today import today
 from bot.handlers.send import send_command
 from bot.handlers.hello import hello_command
-
 from bot.handlers.natural_scheduler import (
     natural_scheduler
 )
@@ -207,6 +206,8 @@ def main():
 
     app.add_handler(CommandHandler("today", today))
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("hello", hello_command))
     app.add_handler(CommandHandler("mood", set_mood))
     app.add_handler(CommandHandler("search", search_command))
     app.add_handler(CommandHandler("showlast", show_last_image))
@@ -240,8 +241,6 @@ def main():
     app.run_polling(
         drop_pending_updates=True
     )
-    # Context: Registering the new /hello command mapping
-    app.add_handler(CommandHandler("hello", hello_command))
 
 if __name__ == "__main__":
 
