@@ -1,0 +1,73 @@
+import sqlite3
+
+
+conn = sqlite3.connect(
+    "bot/database/bot.db",
+    check_same_thread=False
+)
+
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER,
+    message TEXT,
+    remind_at REAL
+)
+""")
+
+conn.commit()
+
+
+def add_reminder(
+    chat_id,
+    message,
+    remind_at
+):
+
+    cursor.execute(
+        """
+        INSERT INTO reminders
+        (
+            chat_id,
+            message,
+            remind_at
+        )
+        VALUES (?, ?, ?)
+        """,
+        (
+            chat_id,
+            message,
+            remind_at
+        )
+    )
+
+    conn.commit()
+
+
+def get_due_reminders(current_time):
+
+    cursor.execute(
+        """
+        SELECT id, chat_id, message
+        FROM reminders
+        WHERE remind_at <= ?
+        """,
+        (current_time,)
+    )
+
+    return cursor.fetchall()
+
+
+def delete_reminder(reminder_id):
+
+    cursor.execute(
+        """
+        DELETE FROM reminders
+        WHERE id = ?
+        """,
+        (reminder_id,)
+    )
+
+    conn.commit()
