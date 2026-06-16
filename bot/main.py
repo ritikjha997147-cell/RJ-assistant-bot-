@@ -23,9 +23,11 @@ from bot.handlers.connect import connect
 from bot.handlers.sendlater import sendlater
 from bot.handlers.userinfo import userinfo
 from bot.handlers.today import today
-from bot.handlers.send import send_command
-from bot.handlers.hello import hello_command
 
+# नए और मर्ज किए गए दोनों फंक्शंस को एक साथ इम्पोर्ट कर लिया
+from bot.handlers.send import send_command, handle_owner_confirmation
+
+from bot.handlers.hello import hello_command
 from bot.handlers.natural_scheduler import natural_scheduler
 from bot.handlers.admin_ai import admin_ai_control
 from bot.handlers.contact_ai import contact_ai
@@ -144,7 +146,7 @@ def main():
     app.add_handler(CommandHandler(["send", "msg"], send_command))
 
     # ---------------------------------------------------------
-    # 2. IMAGE HANDLER (Default Group)
+    # 2. IMAGE HANDLER (Default Group 0)
     # ---------------------------------------------------------
     app.add_handler(
         MessageHandler(
@@ -154,21 +156,23 @@ def main():
     )
 
     # ---------------------------------------------------------
-    # 3. MESSAGE HANDLERS (Isolated into separate sequential groups)
+    # 3. MESSAGE HANDLERS (Sequential Group Allocation)
     # ---------------------------------------------------------
-    # ये एआई हैंडलर्स अलग-अलग ग्रुप्स (1, 2, 3, 4) में हैं, जिससे ये /commands को ब्लॉक नहीं करेंगे
+    
+    # OWNER CONFIRMATION: सबसे पहले ओनर का 'haa change kar naam' रिपॉन्स कैप्चर होगा (Top Priority)
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            natural_scheduler
+            handle_owner_confirmation
         ),
         group=1
     )
 
+    # बाकी सारे पुराने एआई हैंडलर्स बिना लॉजिक बदले एक-एक ग्रुप नीचे शिफ्ट कर दिए गए हैं
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            contact_ai
+            natural_scheduler
         ),
         group=2
     )
@@ -176,7 +180,7 @@ def main():
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            admin_ai_control
+            contact_ai
         ),
         group=3
     )
@@ -184,12 +188,20 @@ def main():
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            safe_handle_message
+            admin_ai_control
         ),
         group=4
     )
 
-    print("✅ RJ BOT ASSISTANT is running smoothly...")
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            safe_handle_message
+        ),
+        group=5
+    )
+
+    print("✅ RJ BOT ASSISTANT is running smoothly with multi-agent routing...")
 
     app.run_polling(
         drop_pending_updates=True
